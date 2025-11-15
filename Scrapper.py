@@ -15,13 +15,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from rapidfuzz import fuzz
 from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+
 # ---------- CONFIG ----------
-EXCEL_FILE = "16 Series Variant.xlsx"
-SHEET_NAME = "Sheet5"
+EXCEL_FILE = "139 Product.xlsx"
+SHEET_NAME = "Sheet2"
 CHROME_DRIVER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\chromedriver.exe"
 # WAIT_TIME = 10
 MATCH_THRESHOLD = 50
-MAX_WORD=5
+MAX_WORD=11
 # START_ROW = 503
 # END_ROW = 1000
 
@@ -109,18 +111,18 @@ COLOR_DICTIONARY = {
 
 # ----------------------------
 SITE_CONFIG = {
-    "amazon": {
+    "amazon.ae": {
         "SEARCH_URL": "https://www.amazon.ae",
         "SEARCH_BOX": (By.ID, "twotabsearchtextbox"),
         "SEARCH_BUTTON": (By.ID, "nav-search-submit-button"),
         "RESULTS": (By.XPATH, "//div[@data-component-type='s-search-result']"),
-        "TITLE": (By.CSS_SELECTOR, "h2.a-size-medium.a-spacing-none.a-color-base.a-text-normal span"),
+        "TITLE": (By.CSS_SELECTOR, "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
-        "CSV": "scrape_results_Amazon3.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Amazon.ae",
+        "CSV": "scrape_results_Amazon_ae_R2.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\139 products\Rounds2\Amazon.ae",
         "START_ROW" : 2,
-        "END_ROW" : 25,
+        "END_ROW" : 120,
         "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
     },
     "amazon.in": {
@@ -131,10 +133,10 @@ SITE_CONFIG = {
         "TITLE": (By.CSS_SELECTOR, "h2.a-size-medium.a-spacing-none.a-color-base.a-text-normal span"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
-        "CSV": "scrape_results_Amazon.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Amazon.ae",
-        "START_ROW" : 2,
-        "END_ROW" : 25,
+        "CSV": "scrape_results_Amazon_in.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\139 products\Rounds1\Amazon.in",
+        "START_ROW" : 7,
+        "END_ROW" : 140,
         "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
     },
     "amazon.com": {
@@ -144,10 +146,10 @@ SITE_CONFIG = {
         "TITLE": (By.CSS_SELECTOR, "h2.a-size-medium.a-spacing-none.a-color-base.a-text-normal span"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
-        "CSV": "scrape_results_Amazon4.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Amazon.ae",
-        "START_ROW" : 2,
-        "END_ROW" : 25,
+        "CSV": "scrape_results_Amazon_com.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Amazon.com",
+        "START_ROW" : 7,
+        "END_ROW" : 140,
         "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
     },
     "noon": {
@@ -405,7 +407,7 @@ def scrape_product_images(browser, variant_id, site):
         thumbnails = browser.find_elements(By.CSS_SELECTOR, cfg["IMG_SELECTOR"])
         print(f"   🔍 Found {len(thumbnails)} thumbnails.")
 
-        for thumb in thumbnails:
+        for thumb in thumbnails[1:]: # This skips the first element
             try:
                 src = thumb.get_attribute("src")
                 if not src or "transparent" in src:
@@ -459,7 +461,7 @@ def search_and_scrape(site):
 
     options = Options()
     options.add_argument("--start-maximized")
-    service = Service(CHROME_DRIVER_PATH)
+    service = Service(ChromeDriverManager().install())
     browser = webdriver.Chrome(service=service, options=options)
 
     file_exists = os.path.exists(output_csv)
@@ -484,7 +486,7 @@ def search_and_scrape(site):
         try:
             # Search phase
             browser.get(cfg["SEARCH_URL"])
-            if site == "amazon" or site == "amazon.com":  # Use site parameter, not site_choice
+            if site == "amazon.ae" or site == "amazon.com" or site=="amazon.in":  # Use site parameter, not site_choice
                 WebDriverWait(browser, 5).until(
                     EC.presence_of_element_located((By.ID, "twotabsearchtextbox"))
                 )
@@ -530,7 +532,7 @@ def search_and_scrape(site):
             print_time_elapsed(time.time(), "   Matching completed")
             
             # Dynamic threshold
-            # min_threshold = max(50, 100 - len(variant_name.split())/2)
+            # MATCH_THRESHOLD = max(50, 100 - len(variant_name.split())/2)
 
             if best_match_elem and best_score >= MATCH_THRESHOLD:
                 print(f"   🎯 Best match score: {best_score} (Threshold: {MATCH_THRESHOLD})")  # Fixed print
@@ -556,7 +558,7 @@ def search_and_scrape(site):
                 browser.switch_to.window(browser.window_handles[0])
                 print_time_elapsed(scrape_start, "   Scraping completed")
             else:
-                print("   ⚠ No good match found.")
+                print(f"   ⚠ No good match found. Best match score: {best_score} (Threshold: {MATCH_THRESHOLD})")
                 matched_product_name = ""
 
             time.sleep(random.randint(2, 5))
@@ -582,9 +584,8 @@ def search_and_scrape(site):
     print_time_elapsed(total_start_time, f"🏁 {site} scraping completed")
     print(f"🕒 Finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-
 if __name__ == "__main__":
-    site_choice = input("Enter site to scrape (amazon/noon): ").strip().lower()
+    site_choice = input("Enter site to scrape amazon.ae  amazon.in  amazon.com  noon : ").strip().lower()
     if site_choice in SITE_CONFIG:
         search_and_scrape(site_choice)
     else:
