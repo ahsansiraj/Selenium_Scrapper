@@ -18,12 +18,12 @@ from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ---------- CONFIG ----------
-EXCEL_FILE = "139 Product.xlsx"
+EXCEL_FILE = "for Data Scrapping.xlsx"
 SHEET_NAME = "Sheet2"
 CHROME_DRIVER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\chromedriver.exe"
 # WAIT_TIME = 10
 MATCH_THRESHOLD = 50
-MAX_WORD=11
+MAX_WORD=9
 # START_ROW = 503
 # END_ROW = 1000
 
@@ -119,11 +119,11 @@ SITE_CONFIG = {
         "TITLE": (By.CSS_SELECTOR, "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
-        "CSV": "scrape_results_Amazon_ae_R2.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\139 products\Rounds2\Amazon.ae",
+        "CSV": "scrape_results_Amazon_ae_R3.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\57 products\Rounds2\Amazon.ae",
         "START_ROW" : 2,
-        "END_ROW" : 120,
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+        "END_ROW" : 21,
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
     },
     "amazon.in": {
         "SEARCH_URL": "https://www.amazon.in",
@@ -134,10 +134,10 @@ SITE_CONFIG = {
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_in.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\139 products\Rounds1\Amazon.in",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\57 products\Rounds2\Amazon.ae",
         "START_ROW" : 7,
         "END_ROW" : 140,
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
     },
     "amazon.com": {
         "SEARCH_URL": "https://www.amazon.com",
@@ -147,10 +147,10 @@ SITE_CONFIG = {
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_com.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Amazon.com",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\57 products\Rounds2\Amazon.com",
         "START_ROW" : 7,
         "END_ROW" : 140,
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
     },
     "noon": {
         "SEARCH_URL": "https://www.noon.com/uae-en/",
@@ -221,7 +221,7 @@ def calculate_match_score(variant, product_title):
     color_bonus = calculate_color_match_score(variant, product_title)
     
     # Penalty for accessory keywords
-    penalty = -30 if any(word in title_lower for word in PENALTY_WORDS) else 0
+    penalty = -20 if any(word in title_lower for word in PENALTY_WORDS) else 0
     
     return base_score + keyword_bonus + capacity_bonus + brand_score + model_score + penalty + color_bonus
 
@@ -293,7 +293,7 @@ def calculate_color_match_score(variant, product_title):
     # Penalty for mismatched colors
     title_only_colors = title_colors - variant_colors
     if title_only_colors and not any(c in str(title_only_colors) for c in variant_colors):
-        score -= 20
+        score -= 15
         
     return score
     
@@ -532,7 +532,7 @@ def search_and_scrape(site):
             print_time_elapsed(time.time(), "   Matching completed")
             
             # Dynamic threshold
-            # MATCH_THRESHOLD = max(50, 100 - len(variant_name.split())/2)
+            # MATCH_THRESHOLD = max(30, 90 - len(variant_name.split())/2)
 
             if best_match_elem and best_score >= MATCH_THRESHOLD:
                 print(f"   🎯 Best match score: {best_score} (Threshold: {MATCH_THRESHOLD})")  # Fixed print
