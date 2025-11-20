@@ -2,3 +2,8 @@
 All Previous/
 
 Data Cleaning/
+
+*.xlsx
+*.csv
+*.gitignore
+.gitignore
