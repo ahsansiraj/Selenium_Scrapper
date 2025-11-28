@@ -355,6 +355,71 @@ def scrape_product_images(browser, variant_id, site):
         print(f"   ❌ Error scraping images - {e}")
         return False
 
+def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):
+    """
+    Search DuckDuckGo instead of Google - much more bot-friendly!
+    DuckDuckGo doesn't have aggressive anti-bot measures like Google does.
+    """
+    try:
+        print("   🔍 Searching on DuckDuckGo...")
+        browser.get("https://duckduckgo.com")
+        time.sleep(2)
+        
+        search_query = f"{variant_name} amazon {geo_keyword}"
+        print(f"   🌍 Search query: '{search_query}'")
+        
+        # DuckDuckGo's search box has id="searchbox_input"
+        search_box = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.ID, "searchbox_input"))
+        )
+        search_box.clear()
+        search_box.send_keys(search_query)
+        search_box.send_keys(Keys.ENTER)
+        
+        # Wait for results
+        time.sleep(3)
+        WebDriverWait(browser, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
+        )
+        
+        # Extract URLs from DuckDuckGo results
+        search_results = browser.find_elements(By.CSS_SELECTOR, "article a")
+        
+        all_urls = []
+        for result in search_results:
+            try:
+                url = result.get_attribute("href")
+                if url and "amazon" in url and url.startswith("http"):
+                    all_urls.append(url)
+            except:
+                continue
+        
+        print(f"   📊 Found {len(all_urls)} Amazon URLs")
+        
+        # Same priority logic
+        for url in all_urls:
+            if "amazon.ae" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.ae URL")
+                return url, "amazon.ae"
+        
+        for url in all_urls:
+            if "amazon.in" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.in URL")
+                return url, "amazon.in"
+        
+        for url in all_urls:
+            if "amazon.com" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.com URL")
+                return url, "amazon.com"
+        
+        print("   ⚠️  No Amazon URLs found")
+        return None, None
+        
+    except Exception as e:
+        print(f"   ❌ Error: {str(e)}")
+        return None, None
+    
+    
 def search_and_scrape(site):
     """
     MODIFIED MAIN FUNCTION - Now uses Google search instead of direct Amazon search
@@ -446,11 +511,16 @@ def search_and_scrape(site):
             
             product_url, detected_site = search_google_and_get_amazon_url(variant_name, browser)
             
+            # Try Google first, fallback to DuckDuckGo if no results
+            if not product_url:
+                print("   🔄 Google search failed, trying DuckDuckGo as fallback...")
+                product_url, detected_site = search_duckduckgo_and_get_amazon_url(variant_name, browser)
+                
             if product_url:
                 # Success! Google found an Amazon product page for us
                 print(f"   📦 Found product on {detected_site}")
                 matched_product_name = f"Product from {detected_site} (via Google)"
-                
+            
                 # Now open this exact product page in a new tab
                 # No need for matching logic - Google already found the right product!
                 scrape_start = time.time()
