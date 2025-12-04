@@ -18,7 +18,7 @@ from Scrapper import search_duckduckgo_and_get_amazon_url
 
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"
-SHEET_NAME = "Variant"
+SHEET_NAME = "Sheet3"
 OUTPUT_EXCEL = "Scraped_Product_Weight.xlsx"
 MAX_WORD = 10
 GEO_KEYWORD = "Dubai"
@@ -30,17 +30,17 @@ SITE_CONFIG = {
     "amazon.ae": {
         "CSV": "WEIGHT_data_Amazon_ae2.csv",
         "START_ROW": 2,
-        "END_ROW": 21,
+        "END_ROW": 3000,
     },
     "amazon.in": {
         "CSV": "WEIGHT_data_Amazon_in2.csv",
         "START_ROW": 2,
-        "END_ROW": 21,
+        "END_ROW": 3000,
     },
     "amazon.com": {
         "CSV": "WEIGHT_data_Amazon_com2.csv",
         "START_ROW": 2,
-        "END_ROW": 21,
+        "END_ROW": 3000,
     }
 }
 
@@ -97,75 +97,117 @@ def extract_weight(browser):
     Returns weight in grams (g) or the original format if not in grams.
     """
     try:
-        # Find all list items in the detail bullets
-        detail_items = browser.find_elements(By.CSS_SELECTOR, "#detailBullets_feature_div li")
+
+        selectors=["#detailBullets_feature_div li",
+                   "#productDetails_techSpec_section_1 tr",
+                   "#productDetails_detailBullets_sections1 tr",
+                   "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
+                   "div.content-grid-block table.a-bordered tr",
+                   "table.a-bordered tr"]
         
-        # If not found, try the table layout (older/alternate Amazon layout)
-        if not detail_items:
-            detail_items = browser.find_elements(By.CSS_SELECTOR, "#productDetails_techSpec_section_1 tr")
-        
-        if not detail_items:
-            detail_items = browser.find_elements(By.CSS_SELECTOR, "#productDetails_detailBullets_sections1 tr")
+        detail_items = []
+        for selector in selectors:
+            elements = browser.find_elements(By.CSS_SELECTOR, selector)
+            if elements:
+                detail_items.extend(elements)
+                break
+            
+        if detail_items:
+            print(f"      📊 Found {len(detail_items)} detail items to process")
+        else:
+            print("      ⚠️ No detail items found")
+            return "Not Found"
 
         for item in detail_items:
             try:
-                item_text = item.text
+                item_text = item.text.strip()
                 
-                # Check for Item Weight first (most direct)
-                if "Item Weight" in item_text:
-                    match = re.search(r'Item Weight \s*(?::\s*)?([0-9.,]+)\s*(?:(g|kg|lb|oz|ounces|grams|kilograms|pounds))', item_text, re.IGNORECASE)
-                    if match:
-                        weight_value = match.group(1).strip()
-                        weight_unit = match.group(2).strip().lower() if match.group(2) else ""
-                        weight = f"{weight_value} {weight_unit}" if weight_unit else weight_value
-                        print(f"      ✓ Found item weight: {weight}")
-                        return weight
+                # Skip empty rows
+                if not item_text:
+                    continue
                 
-                # Check for Product Dimensions (extract weight from end)
-                if "Product Dimensions" in item_text:
-                    # Pattern: "0.75 x 7.79 x 16.44 cm; 192 g"
-                    # Extract the weight part after semicolon (the actual weight value)
-                    print(item_text)
-                    # Look for: semicolon + optional space + number + space + g/kg/lb/oz
-                    weight_match = re.search(r';\s*([0-9.,]+)\s*(g|kg|lb|oz)', item_text, re.IGNORECASE)
+                print(f"      🔍 Checking row: {item_text[:50]}...")
+
+                # Pattern: "Weight\n6.14 ounces (174 grams)"
+                if "Weight" in item_text:
+                    # First try: Extract any weight pattern from the text
+                    # This handles: "6.14 ounces (174 grams)" or "174 grams (6.14 ounces)"
+                    weight_match = re. search(r'([0-9.,]+)\s*(ounces?|grams?|g|kg|lb|oz|kilograms?|pounds?)', item_text, re.IGNORECASE)
                     if weight_match:
                         weight_value = weight_match.group(1).strip()
                         weight_unit = weight_match.group(2).strip().lower()
                         
-                        # Return weight with unit
+                        # Normalize units
+                        if weight_unit in ['ounce', 'ounces', 'oz']:
+                            weight_unit = 'oz'
+                        elif weight_unit in ['gram', 'grams']:
+                            weight_unit = 'g'
+                        elif weight_unit in ['kilogram', 'kilograms']:
+                            weight_unit = 'kg'
+                        elif weight_unit in ['pound', 'pounds']:
+                            weight_unit = 'lb'
+                        
                         weight = f"{weight_value} {weight_unit}"
-                        print(f"      ✓ Found product weight: {weight}")
+                        weight_in_grams = convert_to_grams(weight_value, weight_unit)
+                        if weight_in_grams is not None:
+                            weight = f"{weight_in_grams} g"
+                        print(f"      ✓ Found weight: {weight}")
                         return weight
-    
-            except:
+                
+                # Method 3: Check for "Product Dimensions" or "Package Dimensions"
+                # Pattern: "15.24 x 7.62 x 1.27 cm; 174 g"
+                elif "Product Dimensions" in item_text or "Package Dimensions" in item_text:
+                    print(f"      📦 Checking dimensions for weight...")
+                    # Extract weight after semicolon
+                    weight_match = re.search(r';\s*([0-9.,]+)\s*(g|kg|lb|oz|ounces|grams|kilograms|pounds)', item_text, re.IGNORECASE)
+                    if weight_match:
+                        weight_value = weight_match.group(1).strip()
+                        weight_unit = weight_match.group(2).strip().lower()
+                        
+                        # Normalize units
+                        if weight_unit in ['ounce', 'ounces', 'oz']:
+                            weight_unit = 'oz'
+                        elif weight_unit in ['gram', 'grams']:
+                            weight_unit = 'g'
+                        
+                        weight = f"{weight_value} {weight_unit}"
+                        weight_in_grams = convert_to_grams(weight_value, weight_unit)
+                        if weight_in_grams is not None:
+                            weight = f"{weight_in_grams} g"
+                        print(f"      ✓ Found weight from dimensions: {weight}")
+                        return weight
+        
+            except Exception as e:
+                print(f"      ⚠️ Error processing item: {e}")
                 continue
 
-    except:
-        pass
+        print("      ❌ Weight not found in product details")
+        return "Not Found"
 
-    print(f"      ✗ Product weight not found")
-    return "Not Found"
+    except Exception as e:
+        print(f"      ❌ Error extracting weight: {str(e)}")
+        return "Not Found"
+
+def convert_to_grams(value, unit):
+    """Convert weight to grams"""
+    unit = unit.lower().strip()
+    try:
+        value = float(value.replace(',', ''))
+    except:
+        return None
+    
+    if unit in ['g', 'gram', 'grams']:
+        return value
+    elif unit in ['kg', 'kilogram', 'kilograms']:
+        return value * 1000
+    elif unit in ['oz', 'ounce', 'ounces']:
+        return value * 28.3495
+    elif unit in ['lb', 'lbs', 'pound', 'pounds']:
+        return value * 453.592
+    return None
 
 def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
-    """
-    Extract product data from an Amazon product page.
     
-    This function:
-    1. Opens the product page
-    2. Waits for the page to load
-    3. Extracts product name and weight
-    4. Returns a dictionary with all the data
-    5. Handles errors by retrying with a fresh browser if needed
-    
-    Args:
-        product_url: Full URL of the Amazon product page
-        browser: Selenium browser instance
-        retry_count: How many times we've already tried this URL
-        max_retries: Maximum number of retry attempts
-    
-    Returns:
-        dict: Contains product_name, product_weight, and status
-    """
     data = {
         "product_name": "Not Found",
         "product_weight": "Not Found",
@@ -291,12 +333,24 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
             search_box.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
+        time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         search_box.send_keys(Keys.ENTER)
         
         # Step 5: Wait for search results to load with multiple strategies
         print("   ⏳ Waiting for search results...")
-        time.sleep(random.uniform(3, 5))  # Give Google time to fully render
+        time.sleep(random.uniform(1,20))  # Give Google time to fully render
+
+        # NEW: Simple human-like scrolling
+        print("   📜 Scanning results...")
+        for _ in range(random.randint(2, 4)):  # 2-4 scroll actions
+            scroll_distance = random. randint(300, 600)
+            browser.execute_script(f"window.scrollBy({{top: {scroll_distance}, behavior: 'smooth'}});")
+            time.sleep(random.uniform(0.6, 1.2))
+
+        # Scroll back to top
+        browser.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
+        time.sleep(random.uniform(0.8, 1.5))
+
         
         # Try multiple selectors for search results
         search_results = []
@@ -507,17 +561,13 @@ def search_and_scrape_data(site):
     except:
         pass
     
-    # Convert CSV to Excel with proper formatting
-    print(f"\n{'='*80}")
-    print(f"📊 Converting to Excel format...")
-    
     try:
         csv_df = pd.read_csv(output_csv)
         
         # Define column order to match row_data structure
         column_order = [
-            "Variant_id",
-            "Variant_name",
+            "variant_id",
+            "variant_name",
             "Weight",
             "status",
             "product_url",
@@ -544,6 +594,7 @@ def search_and_scrape_data(site):
     except Exception as e:
         print(f"⚠️  Could not create Excel file: {e}")
         print(f"   CSV file available at: {output_csv}")
+    
     elapsed = time.time() - total_start_time
     hours, rem = divmod(elapsed, 3600)
     minutes, seconds = divmod(rem, 60)
