@@ -1,3 +1,4 @@
+import math
 import os
 import re
 import time
@@ -5,17 +6,15 @@ import random
 import pandas as pd
 import requests
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium. webdriver.common.by import By
+from selenium. webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+import undetected_chromedriver as uc
+import random
 
-from Scrapper import search_duckduckgo_and_get_amazon_url
-
+from search_engines import search_duckduckgo_and_get_amazon_url
+from search_engines import search_BING_and_get_amazon_url
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"
 SHEET_NAME = "Sheet3"
@@ -24,7 +23,84 @@ MAX_WORD = 10
 GEO_KEYWORD = "Dubai"
 
 # Realistic user agent
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# List of user agents to rotate
+USER_AGENTS = [
+    # Chrome on Windows (Various Versions)
+    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    
+    # Chrome on macOS (Various Versions)
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0. 0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119. 0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0. 0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
+    
+    # Chrome on Linux
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120. 0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5. 0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
+    
+    # Firefox on Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120. 0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+    
+    # Firefox on macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10. 15; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.0; rv:121.0) Gecko/20100101 Firefox/121.0',
+    
+    # Firefox on Linux
+    'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    
+    # Safari on macOS
+    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15',
+    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605. 1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    
+    # Edge on Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0',
+    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0. 0.0 Safari/537. 36 Edg/121. 0.0.0',
+    
+    # Edge on macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 Edg/120. 0.0.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0. 0.0 Safari/537. 36 Edg/119. 0.0.0',
+    
+    # Opera on Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0. 0 Safari/537.36 OPR/105.0.0.0',
+    
+    # Opera on macOS
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 OPR/106. 0.0.0',
+    
+    # Brave on Windows
+    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 Brave/120.0.0.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Brave/119.0.0.0',
+    
+    # Vivaldi on Windows
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0. 0 Safari/537.36 Vivaldi/6.5',
+    
+    # Chrome on Windows with different Windows versions
+    'Mozilla/5. 0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    
+    # Mobile User Agents (useful for variety)
+    'Mozilla/5. 0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 6099.144 Mobile Safari/537.36',
+    'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537. 36',
+]
+
 
 SITE_CONFIG = {
     "amazon.ae": {
@@ -46,32 +122,95 @@ SITE_CONFIG = {
 
 def create_browser_with_anti_detection():
     """
-    Creates a Chrome browser with anti-detection measures enabled.
-    This makes our scraper look like a real human browsing, not a bot.
+    Creates an undetected Chrome browser with anti-detection measures enabled.
+    This makes our scraper look like a real human browsing, not a bot. 
     """
-    options = Options()
+    
+    # Create options for undetected chrome
+    options = uc.ChromeOptions()
+    
+    # Window settings
     options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
     
-    # Critical anti-detection settings
+    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.add_argument(f"user-agent={USER_AGENT}")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
     
-    service = Service(ChromeDriverManager().install())
-    browser = webdriver.Chrome(service=service, options=options)
+    # Memory limits
+    options.add_argument("--max_old_space_size=4096")  # Limit memory to 4GB
+    options.add_argument("--js-flags=--max-old-space-size=4096")
     
-    # Hide the webdriver property that websites use to detect automation
-    browser.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-        'source': '''
+    # Random user agent
+    user_agent = random.choice(USER_AGENTS)
+    options.add_argument(f"user-agent={user_agent}")
+    
+    # Additional privacy/stealth settings
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-extensions")
+    
+    
+    # Preferences to appear more human-like
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.managed_default_content_settings.images": 1,  # Load images
+    }
+    options.add_experimental_option("prefs", prefs)
+    
+    try:
+        # Create undetected Chrome browser
+        # version_main parameter should match your installed Chrome version
+        # If not specified, it will try to auto-detect
+        browser = uc.Chrome(
+            options=options,
+            use_subprocess=True,  # More stable
+            version_main=142,  # Uncomment and set your Chrome version if needed
+        )
+        
+        print("   ✅ Undetected Chrome browser created successfully")
+        
+        # Additional stealth scripts (optional, but helpful)
+        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": user_agent
+        })
+        
+        # Set navigator properties to appear more human
+        browser.execute_script("""
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
-            })
-        '''
-    })
+            });
+            
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+            
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
+        """)
+        
+        return browser
+        
+    except Exception as e:
+        print(f"   ❌ Error creating undetected browser: {e}")
+        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
+        raise
     
-    return browser
-
 def extract_product_name(browser):
     """
     Extract the product title from the page.
@@ -199,11 +338,11 @@ def convert_to_grams(value, unit):
     if unit in ['g', 'gram', 'grams']:
         return value
     elif unit in ['kg', 'kilogram', 'kilograms']:
-        return value * 1000
+        return math.floor(value * 1000)/100
     elif unit in ['oz', 'ounce', 'ounces']:
-        return value * 28.3495
+        return math.floor(value * 28.3495)/100
     elif unit in ['lb', 'lbs', 'pound', 'pounds']:
-        return value * 453.592
+        return math.floor(value * 453.592)/100
     return None
 
 def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
@@ -238,31 +377,31 @@ def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
     except Exception as e:
         print(f"   ❌ Error loading page: {str(e)}")
         
-        # Retry strategy: if we haven't exceeded max retries, try again with fresh browser
-        if retry_count < max_retries:
-            print(f"   🔄 Retrying with new browser instance ({retry_count + 1}/{max_retries})...")
-            time.sleep(random.uniform(3, 5))
+        # # Retry strategy: if we haven't exceeded max retries, try again with fresh browser
+        # if retry_count < max_retries:
+        #     print(f"   🔄 Retrying with new browser instance ({retry_count + 1}/{max_retries})...")
+        #     time.sleep(random.uniform(3, 5))
             
-            # Close current browser and create a new one
-            try:
-                browser.quit()
-            except:
-                pass
+        #     # Close current browser and create a new one
+        #     try:
+        #         browser.quit()
+        #     except:
+        #         pass
             
-            new_browser = create_browser_with_anti_detection()
-            result = scrape_product_data(product_url, new_browser, retry_count + 1, max_retries)
+        #     new_browser = create_browser_with_anti_detection()
+        #     result = scrape_product_data(product_url, new_browser, retry_count + 1, max_retries)
             
-            try:
-                new_browser.quit()
-            except:
-                pass
+        #     try:
+        #         new_browser.quit()
+        #     except:
+        #         pass
             
-            return result
-        else:
-            # Max retries exceeded, mark as failed
-            data["status"] = "Data Extraction Failed"
-            print(f"   ⚠️  Max retries exceeded")
-            return data
+        #     return result
+        # else:
+        #     # Max retries exceeded, mark as failed
+        #     data["status"] = "Data Extraction Failed"
+        #     print(f"   ⚠️  Max retries exceeded")
+    return data
 
 def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYWORD):
     """
@@ -311,6 +450,7 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
             (By.XPATH, "//input[@name='q']")
         ]
         
+
         for selector_type, selector_value in selectors_to_try:
             try:
                 search_box = WebDriverWait(browser, 5).until(
@@ -336,9 +476,11 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
         time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         search_box.send_keys(Keys.ENTER)
         
+        time.sleep(random.uniform(10,30))
+
         # Step 5: Wait for search results to load with multiple strategies
         print("   ⏳ Waiting for search results...")
-        time.sleep(random.uniform(1,20))  # Give Google time to fully render
+        time.sleep(random.uniform(1,10))  # Give Google time to fully render
 
         # NEW: Simple human-like scrolling
         print("   📜 Scanning results...")
@@ -444,16 +586,7 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
 
 def search_and_scrape_data(site):
     """
-    Main scraping function that processes all products and saves data to Excel.
-    
-    Flow:
-    1. Read products from input Excel file
-    2. For each product:
-       a. Search Google for Amazon product URL
-       b. Extract product data from the Amazon page
-       c. Combine with variant info
-       d. Save to temporary CSV
-    3. Convert CSV to final Excel file with proper formatting
+    Main scraping function with batch processing to avoid CAPTCHAs
     """
     cfg = SITE_CONFIG[site]
     total_start_time = time.time()
@@ -463,56 +596,75 @@ def search_and_scrape_data(site):
     print(f"🌍 Using geo-keyword: '{GEO_KEYWORD}'")
     print(f"{'='*80}\n")
     
-    # Read input Excel file with product variants
+    # Read input Excel
     try:
         full_df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME)
         full_df = full_df.iloc[cfg["START_ROW"]-2:cfg["END_ROW"]]
+        
+        
     except Exception as e:
         print(f"❌ Error reading Excel file: {e}")
         return
     
     output_csv = cfg["CSV"]
     
-    # Check if we're resuming from a previous run
-    if os.path.exists(output_csv) and os.path.getsize(output_csv) > 0:
+    # Check for existing progress
+    if os.path.exists(output_csv) and os.path. getsize(output_csv) > 0:
         try:
             processed_df = pd.read_csv(output_csv)
-            processed_ids = set(processed_df['variant_id'].astype(str))
+            
+            
+            # FIX: Use lowercase 'variant_id' consistently
+            processed_ids = set(processed_df['variant_id']. astype(str))
             df_to_process = full_df[~full_df['variant_id'].astype(str).isin(processed_ids)]
-            print(f"📄 Resuming... {len(processed_df)} products already processed\n")
-        except:
+            
+            print(f"📄 Resuming...  {len(processed_df)} products already processed")
+            print(f"📋 Remaining products: {len(df_to_process)}\n")
+            
+        except Exception as e:
+            print(f"⚠️ Could not load progress: {e}")
+            import traceback
+            traceback.print_exc()
             df_to_process = full_df.copy()
     else:
         df_to_process = full_df.copy()
         print(f"📄 Starting fresh with {len(df_to_process)} products\n")
     
+    if len(df_to_process) == 0:
+        print("✅ All products already processed!")
+        # Still convert to Excel
+        convert_csv_to_excel(output_csv)
+        return
+    
     # Create browser with anti-detection measures
     browser = create_browser_with_anti_detection()
-    file_exists = os.path.exists(output_csv)
-    
+    file_exists = os.path.exists(output_csv) and os.path.getsize(output_csv) > 0
+    search_count=0;
     # Process each product
-    for index, row in df_to_process.iterrows():
+    processed_count = 0
+    for index, row in df_to_process. iterrows():
         product_start_time = time.time()
-        
+        search_count+=1
         try:
             Variant_id = str(row['variant_id']).strip()
-            full_Variant_name = str(row['variant_name']).strip()
+            full_Variant_name = str(row['variant_name']). strip()
             
             if not Variant_id or not full_Variant_name:
                 continue
             
+            processed_count += 1
             print(f"{'='*80}")
-            print(f"🔎 Product: {full_Variant_name}")
+            print(f"🔎 Product {processed_count}/{len(df_to_process)}: {full_Variant_name}")
             print(f"🆔 ID: {Variant_id}")
             print(f"{'='*80}")
             
             # Search for product on Google
-            product_url, amazon_site = search_google_and_get_amazon_url(full_Variant_name, browser)
+            product_url, amazon_site = search_duckduckgo_and_get_amazon_url(full_Variant_name, browser)
             
             # Try Google first, fallback to DuckDuckGo if no results
             if not product_url:
-                print("   🔄 Google search failed, trying DuckDuckGo as fallback...")
-                product_url, amazon_site = search_duckduckgo_and_get_amazon_url(full_Variant_name, browser)
+                print("   🔄 DuckDuckGo search failed, trying Google as fallback...")
+                product_url, amazon_site = search_google_and_get_amazon_url(full_Variant_name, browser)
             
             if product_url:
                 print(f"   📦 Found on {amazon_site}")
@@ -522,19 +674,19 @@ def search_and_scrape_data(site):
                 
                 # Combine variant info with scraped data
                 row_data = {
-                    "Variant_id": Variant_id,
-                    "Variant_name": full_Variant_name,
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
                     "product_name": product_data["product_name"],                   
                     "Weight": product_data["product_weight"],
                     "status": product_data["status"],
                     "product_url": product_url,
                 }
             else:
-                print(f"   ⚠️  Product URL not found on Google")
+                print(f"   ⚠️  Product URL not found")
                 
                 row_data = {
-                    "Variant_id": Variant_id,
-                    "Variant_name": full_Variant_name,
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
                     "product_name": "Not Found",
                     "Weight": "Not Found",
                     "status": "Not Found",
@@ -546,54 +698,36 @@ def search_and_scrape_data(site):
             result_df.to_csv(output_csv, mode='a', header=not file_exists, index=False)
             file_exists = True
             
+            # Calculate and display progress
+            product_time = time.time() - product_start_time
+            print(f"   ⏱️  Product processed in {product_time:.2f}s")
+            
             # Human-like delay before next search
-            wait_time = random.randint(4, 7)
+            wait_time = random. randint(4, 7)
             print(f"   ⏳ Waiting {wait_time} seconds...\n")
             time.sleep(wait_time)
             
         except Exception as e:
             print(f"   ❌ Error processing product: {str(e)}\n")
+            # Optionally save error entry
+            try:
+                error_row = {
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
+                    "product_name": "Error",
+                    "Weight": "Error",
+                    "status": f"Error: {str(e)[:50]}",
+                    "product_url": "Error",
+                }
+                result_df = pd.DataFrame([error_row])
+                result_df.to_csv(output_csv, mode='a', header=not file_exists, index=False)
+                file_exists = True
+            except:
+                pass
             continue
-    
-    # Close browser
-    try:
-        browser.quit()
-    except:
-        pass
-    
-    try:
-        csv_df = pd.read_csv(output_csv)
         
-        # Define column order to match row_data structure
-        column_order = [
-            "variant_id",
-            "variant_name",
-            "Weight",
-            "status",
-            "product_url",
-        ]
-        
-        # Reorder columns in dataframe
-        csv_df = csv_df[[col for col in column_order if col in csv_df.columns]]
-        
-        excel_path = OUTPUT_EXCEL
-        
-        # Create Excel writer with formatting
-        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-            csv_df.to_excel(writer, sheet_name='Products', index=False)
-            
-            # Auto-adjust column widths
-            from openpyxl.utils import get_column_letter
-            worksheet = writer.sheets['Products']
-            
-            for idx, col in enumerate(csv_df.columns, 1):
-                max_length = max(csv_df[col].astype(str).map(len).max(), len(col))
-                worksheet.column_dimensions[get_column_letter(idx)].width = min(max_length + 2, 50)
-        
-        print(f"✅ Excel file created: {excel_path}")
-    except Exception as e:
-        print(f"⚠️  Could not create Excel file: {e}")
-        print(f"   CSV file available at: {output_csv}")
+    # Convert CSV to Excel
+    convert_csv_to_excel(output_csv)
     
     elapsed = time.time() - total_start_time
     hours, rem = divmod(elapsed, 3600)
@@ -601,8 +735,35 @@ def search_and_scrape_data(site):
     
     print(f"{'='*80}")
     print(f"🏁 Scraping completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"⏱️  Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
+    print(f"⏱️ Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
     print(f"{'='*80}\n")
+
+def convert_csv_to_excel(output_csv):
+    """Separate function to convert CSV to Excel"""
+    print(f"\n{'='*80}")
+    print(f"📊 Converting to Excel format...")
+    
+    try:
+        csv_df = pd.read_csv(output_csv)
+        excel_path = OUTPUT_EXCEL
+        
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            csv_df.to_excel(writer, sheet_name='Products', index=False)
+            
+            from openpyxl. utils import get_column_letter
+            worksheet = writer.sheets['Products']
+            
+            for idx, col in enumerate(csv_df. columns, 1):
+                max_length = max(csv_df[col].astype(str). map(len).max(), len(col))
+                worksheet.column_dimensions[get_column_letter(idx)].width = min(max_length + 2, 50)
+        
+        print(f"✅ Excel file created: {excel_path}")
+        print(f"📊 Total products in Excel: {len(csv_df)}")
+        
+    except Exception as e:
+        print(f"⚠️ Could not create Excel file: {e}")
+        import traceback
+        traceback. print_exc()
 
 if __name__ == "__main__":
     print("\n" + "="*80)
