@@ -9,5 +9,6 @@ Data Cleaning/
 .gitignore
 
 
-.png
-.md
+*.png
+*.md
+*.__pycache__/.pyc

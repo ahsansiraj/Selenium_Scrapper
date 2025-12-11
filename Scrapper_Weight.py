@@ -27,11 +27,9 @@ GEO_KEYWORD = "Dubai"
 USER_AGENTS = [
     # Chrome on Windows (Various Versions)
     'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     
     # Chrome on macOS (Various Versions)
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0. 0 Safari/537.36',
@@ -120,7 +118,7 @@ SITE_CONFIG = {
     }
 }
 
-def create_browser_with_anti_detection():
+def create_browser_with_anti_detection(user_agent_index):
     """
     Creates an undetected Chrome browser with anti-detection measures enabled.
     This makes our scraper look like a real human browsing, not a bot. 
@@ -132,7 +130,7 @@ def create_browser_with_anti_detection():
     # Window settings
     options.add_argument("--start-maximized")
     options.add_argument("--window-size=1920,1080")
-    
+    options.add_argument(f"user-agent={USER_AGENTS[user_agent_index]}")
     # Anti-detection settings (undetected_chromedriver handles most of these automatically)
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-dev-shm-usage")
@@ -145,7 +143,7 @@ def create_browser_with_anti_detection():
     
     # Random user agent
     user_agent = random.choice(USER_AGENTS)
-    options.add_argument(f"user-agent={user_agent}")
+    options.add_argument(f"user-agent={user_agent_index}")
     
     # Additional privacy/stealth settings
     options.add_argument("--disable-popup-blocking")
@@ -172,7 +170,7 @@ def create_browser_with_anti_detection():
             version_main=142,  # Uncomment and set your Chrome version if needed
         )
         
-        print("   ✅ Undetected Chrome browser created successfully")
+        print(f"   ✅ Undetected Chrome browser created successfully with user agent {USER_AGENTS[user_agent_index]}")
         
         # Additional stealth scripts (optional, but helpful)
         browser.execute_cdp_cmd('Network.setUserAgentOverride', {
@@ -220,7 +218,7 @@ def extract_product_name(browser):
         product_title = browser.find_element(By.ID, "productTitle")
         name = product_title.text.strip()
         if name:
-            print(f"      ✓ Found product name: {name[:60]}...")
+            print(f"      ✓ Found product name: {name[:60]}")
             return name
     except:
         pass
@@ -240,92 +238,131 @@ def extract_weight(browser):
         selectors=["#detailBullets_feature_div li",
                    "#productDetails_techSpec_section_1 tr",
                    "#productDetails_detailBullets_sections1 tr",
+                   "#productDetails_techSpec_section_2 tr",
                    "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
                    "div.content-grid-block table.a-bordered tr",
                    "table.a-bordered tr"]
         
         detail_items = []
-        for selector in selectors:
-            elements = browser.find_elements(By.CSS_SELECTOR, selector)
-            if elements:
-                detail_items.extend(elements)
-                break
-            
-        if detail_items:
-            print(f"      📊 Found {len(detail_items)} detail items to process")
-        else:
-            print("      ⚠️ No detail items found")
-            return "Not Found"
-
-        for item in detail_items:
+        #  Try each selector until we find weight
+        for selector_index, selector in enumerate(selectors, 1):
             try:
-                item_text = item.text.strip()
+                elements = browser.find_elements(By.CSS_SELECTOR, selector)
                 
-                # Skip empty rows
-                if not item_text:
+                if not elements:
+                    print(f"No elements found, trying next...")
                     continue
                 
-                print(f"      🔍 Checking row: {item_text[:50]}...")
-
-                # Pattern: "Weight\n6.14 ounces (174 grams)"
-                if "Weight" in item_text:
-                    # First try: Extract any weight pattern from the text
-                    # This handles: "6.14 ounces (174 grams)" or "174 grams (6.14 ounces)"
-                    weight_match = re. search(r'([0-9.,]+)\s*(ounces?|grams?|g|kg|lb|oz|kilograms?|pounds?)', item_text, re.IGNORECASE)
-                    if weight_match:
-                        weight_value = weight_match.group(1).strip()
-                        weight_unit = weight_match.group(2).strip().lower()
-                        
-                        # Normalize units
-                        if weight_unit in ['ounce', 'ounces', 'oz']:
-                            weight_unit = 'oz'
-                        elif weight_unit in ['gram', 'grams']:
-                            weight_unit = 'g'
-                        elif weight_unit in ['kilogram', 'kilograms']:
-                            weight_unit = 'kg'
-                        elif weight_unit in ['pound', 'pounds']:
-                            weight_unit = 'lb'
-                        
-                        weight = f"{weight_value} {weight_unit}"
-                        weight_in_grams = convert_to_grams(weight_value, weight_unit)
-                        if weight_in_grams is not None:
-                            weight = f"{weight_in_grams} g"
-                        print(f"      ✓ Found weight: {weight}")
-                        return weight
                 
-                # Method 3: Check for "Product Dimensions" or "Package Dimensions"
-                # Pattern: "15.24 x 7.62 x 1.27 cm; 174 g"
-                elif "Product Dimensions" in item_text or "Package Dimensions" in item_text:
-                    print(f"      📦 Checking dimensions for weight...")
-                    # Extract weight after semicolon
-                    weight_match = re.search(r';\s*([0-9.,]+)\s*(g|kg|lb|oz|ounces|grams|kilograms|pounds)', item_text, re.IGNORECASE)
-                    if weight_match:
-                        weight_value = weight_match.group(1).strip()
-                        weight_unit = weight_match.group(2).strip().lower()
+                # Search through all elements from this selector for weight
+                for item in elements:
+                    try:
+                        item_text = item.text.strip()
                         
-                        # Normalize units
-                        if weight_unit in ['ounce', 'ounces', 'oz']:
-                            weight_unit = 'oz'
-                        elif weight_unit in ['gram', 'grams']:
-                            weight_unit = 'g'
+                        # Skip empty rows
+                        if not item_text:
+                            continue
                         
-                        weight = f"{weight_value} {weight_unit}"
-                        weight_in_grams = convert_to_grams(weight_value, weight_unit)
-                        if weight_in_grams is not None:
-                            weight = f"{weight_in_grams} g"
-                        print(f"      ✓ Found weight from dimensions: {weight}")
-                        return weight
-        
+                        # Check if this row contains weight information
+                        if "Weight" in item_text or "Item Weight" in item_text or "weight" in item_text.lower():
+                            print(f"      🎯 Found weight row: {item_text[:80]}...")
+                            
+                            # Extract weight value and unit
+                            weight_match = re.search(
+                                r'([0-9.,]+)\s*(ounces?|grams?|g|kg|lb|oz|kilograms?|pounds?)',
+                                item_text,
+                                re.IGNORECASE
+                            )
+                            
+                            if weight_match:
+                                weight_value = weight_match.group(1).strip()
+                                weight_unit = weight_match.group(2).strip().lower()
+                                
+                                # Normalize units
+                                if weight_unit in ['ounce', 'ounces', 'oz']:
+                                    weight_unit = 'oz'
+                                elif weight_unit in ['gram', 'grams', 'g']:
+                                    weight_unit = 'g'
+                                elif weight_unit in ['kilogram', 'kilograms', 'kg']:
+                                    weight_unit = 'kg'
+                                elif weight_unit in ['pound', 'pounds', 'lb']:
+                                    weight_unit = 'lb'
+                                
+                                # Convert to grams
+                                weight_in_grams = convert_to_grams(weight_value, weight_unit)
+                                
+                                if weight_in_grams is not None:
+                                    weight = f"{weight_in_grams} g"
+                                else:
+                                    weight = f"{weight_value} {weight_unit}"
+                                
+                                print(f"      ✅ Found weight: {weight}")
+                                return weight
+                        
+                        # Also check for Product Dimensions (weight is often at the end)
+                        if "Product Dimensions" in item_text or "Package Dimensions" in item_text:
+                            print(f"      📦 Checking dimensions row: {item_text[:80]}...")
+                            
+                            # Extract weight after semicolon or just search entire text
+                            weight_match = re.search(
+                                r';\s*([0-9.,]+)\s*(g|kg|lb|oz|ounces|grams|kilograms|pounds)',
+                                item_text,
+                                re.IGNORECASE
+                            )
+                            
+                            # If semicolon pattern didn't work, try general pattern
+                            if not weight_match:
+                                weight_match = re.search(
+                                    r'([0-9.,]+)\s*(g|kg|lb|oz|ounces|grams|kilograms|pounds)',
+                                    item_text,
+                                    re.IGNORECASE
+                                )
+                            
+                            if weight_match:
+                                weight_value = weight_match.group(1).strip()
+                                weight_unit = weight_match.group(2).strip().lower()
+                                
+                                # Normalize units
+                                if weight_unit in ['ounce', 'ounces', 'oz']:
+                                    weight_unit = 'oz'
+                                elif weight_unit in ['gram', 'grams', 'g']:
+                                    weight_unit = 'g'
+                                elif weight_unit in ['kilogram', 'kilograms', 'kg']:
+                                    weight_unit = 'kg'
+                                elif weight_unit in ['pound', 'pounds', 'lb']:
+                                    weight_unit = 'lb'
+                                
+                                weight_in_grams = convert_to_grams(weight_value, weight_unit)
+                                
+                                if weight_in_grams is not None:
+                                    weight = f"{weight_in_grams} g"
+                                else:
+                                    weight = f"{weight_value} {weight_unit}"
+                                
+                                print(f"      ✅ Found weight from dimensions: {weight} (from selector {selector_index})")
+                                return weight
+                    
+                    except Exception as e:
+                        # Error with individual element, continue to next
+                        continue
+                
+                # Finished checking all elements from this selector without finding weight
+                print(f"      ⏭️  Selector {selector_index}: No weight found in these elements, trying next selector...")
+                
             except Exception as e:
-                print(f"      ⚠️ Error processing item: {e}")
+                print(f"      ⚠️  Selector {selector_index} error: {e}")
                 continue
-
-        print("      ❌ Weight not found in product details")
+        
+        # If we've tried all selectors and found nothing
+        print("      ❌ Weight not found in any location")
         return "Not Found"
 
     except Exception as e:
         print(f"      ❌ Error extracting weight: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return "Not Found"
+
 
 def convert_to_grams(value, unit):
     """Convert weight to grams"""
@@ -370,7 +407,7 @@ def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
         # Extract each data point (correct order: product_name, asin, launch_date, price)
         data["product_name"] = extract_product_name(browser)
         data["product_weight"] = extract_weight(browser)
-        data["status"] = "Success"
+        data["status"] = "Success" if data["product_weight"] != "Not Found" else "Weight Not Found"
         print(f"   ✅ Data extraction successful")
         return data
         
@@ -635,33 +672,60 @@ def search_and_scrape_data(site):
         # Still convert to Excel
         convert_csv_to_excel(output_csv)
         return
-    
-    # Create browser with anti-detection measures
-    browser = create_browser_with_anti_detection()
+        
+        # Create browser with anti-detection measures
     file_exists = os.path.exists(output_csv) and os.path.getsize(output_csv) > 0
-    search_count=0;
+    search_count = 0
+    batch_number = 0
+    browser = create_browser_with_anti_detection(user_agent_index=batch_number)
+
     # Process each product
     processed_count = 0
-    for index, row in df_to_process. iterrows():
+    for index, row in df_to_process.iterrows():
         product_start_time = time.time()
-        search_count+=1
+        search_count += 1
+        
         try:
             Variant_id = str(row['variant_id']).strip()
-            full_Variant_name = str(row['variant_name']). strip()
+            full_Variant_name = str(row['variant_name']).strip()
             
             if not Variant_id or not full_Variant_name:
                 continue
             
             processed_count += 1
-            print(f"{'='*80}")
-            print(f"🔎 Product {processed_count}/{len(df_to_process)}: {full_Variant_name}")
-            print(f"🆔 ID: {Variant_id}")
-            print(f"{'='*80}")
             
-            # Search for product on Google
+            # Check if search_count is divisible by 15
+            if search_count % 15 == 0:
+                print(f"\n{'='*80}")
+                print(f"🔄 BROWSER REFRESH CYCLE: Search count reached {search_count}")
+                print(f"{'='*80}")
+                
+                # Close current browser
+                print("   🔒 Closing current browser...")
+                try:
+                    browser.quit()
+                except:
+                    pass
+                
+                # Wait 2-3 minutes
+                wait_minutes = random.randint(120, 180)
+                print(f"   ⏸️ Cooling down for {wait_minutes // 60}m {wait_minutes % 60}s...")
+                
+                
+                # Create new browser with new user agent
+                batch_number += 1
+                print(f"\n   🆕 Creating new browser instance (Batch #{batch_number})...")
+                browser = create_browser_with_anti_detection(user_agent_index=batch_number)
+                print(f"{'='*80}\n")
+            
+            print(f"🔎 Product {processed_count}/{len(df_to_process)}: {full_Variant_name}")
+            print(f"📊 Search Count: {search_count}")
+            print(f"🆔 ID: {Variant_id}")
+            
+            # Search for product on DuckDuckGo first
             product_url, amazon_site = search_duckduckgo_and_get_amazon_url(full_Variant_name, browser)
             
-            # Try Google first, fallback to DuckDuckGo if no results
+            # Fallback to Google if no results
             if not product_url:
                 print("   🔄 DuckDuckGo search failed, trying Google as fallback...")
                 product_url, amazon_site = search_google_and_get_amazon_url(full_Variant_name, browser)
@@ -682,7 +746,7 @@ def search_and_scrape_data(site):
                     "product_url": product_url,
                 }
             else:
-                print(f"   ⚠️  Product URL not found")
+                print(f"   ⚠️ Product URL not found")
                 
                 row_data = {
                     "variant_id": Variant_id,
@@ -698,17 +762,20 @@ def search_and_scrape_data(site):
             result_df.to_csv(output_csv, mode='a', header=not file_exists, index=False)
             file_exists = True
             
-            # Calculate and display progress
+            # ✅ FIXED: Calculate and display progress - removed space before .2f
             product_time = time.time() - product_start_time
-            print(f"   ⏱️  Product processed in {product_time:.2f}s")
+            print(f"   ⏱️ Product processed in {product_time:.2f}s")
             
             # Human-like delay before next search
-            wait_time = random. randint(4, 7)
-            print(f"   ⏳ Waiting {wait_time} seconds...\n")
+            wait_time = random.randint(4, 7)
+            print(f"   ⏳ Waiting {wait_time} seconds.. .\n")
             time.sleep(wait_time)
             
         except Exception as e:
             print(f"   ❌ Error processing product: {str(e)}\n")
+            import traceback
+            traceback.print_exc()  # This will show the exact line causing the error
+            
             # Optionally save error entry
             try:
                 error_row = {
@@ -725,18 +792,26 @@ def search_and_scrape_data(site):
             except:
                 pass
             continue
-        
+
+    # Close browser if still open
+    try:
+        browser.quit()
+    except:
+        pass
+
     # Convert CSV to Excel
     convert_csv_to_excel(output_csv)
-    
+
     elapsed = time.time() - total_start_time
     hours, rem = divmod(elapsed, 3600)
     minutes, seconds = divmod(rem, 60)
-    
+
     print(f"{'='*80}")
     print(f"🏁 Scraping completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"⏱️ Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
-    print(f"{'='*80}\n")
+    print(f"📊 Total searches performed: {search_count}")
+    print(f"📊 Total products processed: {processed_count}")
+    print(f"{'='*80}\n")    
 
 def convert_csv_to_excel(output_csv):
     """Separate function to convert CSV to Excel"""
@@ -774,8 +849,8 @@ if __name__ == "__main__":
     print("  • Product Name")
     print("="*80 + "\n")
     
-    site_choice = input("Enter site (amazon.ae / amazon.in / amazon.com): ").strip().lower()
-    
+    # site_choice = input("Enter site (amazon.ae / amazon.in / amazon.com): ").strip().lower()
+    site_choice = "amazon.ae"  # Change this value to choose site    
     if site_choice in SITE_CONFIG:
         search_and_scrape_data(site_choice)
     else:
