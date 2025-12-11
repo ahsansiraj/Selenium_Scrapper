@@ -1,7 +1,10 @@
 # Ignore node_modules folder
 All Previous/
 
-Data Cleaning/
+
+Anti_detecttion_guide/
+
+__pycache__/
 
 *.xlsx
 *.csv
@@ -11,4 +14,3 @@ Data Cleaning/
 
 *.png
 *.md
-*.__pycache__/.pyc
