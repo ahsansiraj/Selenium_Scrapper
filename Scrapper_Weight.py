@@ -24,101 +24,29 @@ GEO_KEYWORD = "Dubai"
 
 # Realistic user agent
 # List of user agents to rotate
-USER_AGENTS = [
-    # Chrome on Windows (Various Versions)
-    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    
-    # Chrome on macOS (Various Versions)
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0. 0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119. 0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0. 0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
-    
-    # Chrome on Linux
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120. 0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5. 0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36',
-    
-    # Firefox on Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120. 0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
-    
-    # Firefox on macOS
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10. 15; rv:121.0) Gecko/20100101 Firefox/121.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.0; rv:121.0) Gecko/20100101 Firefox/121.0',
-    
-    # Firefox on Linux
-    'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
-    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
-    
-    # Safari on macOS
-    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15',
-    'Mozilla/5. 0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605. 1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-    
-    # Edge on Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0',
-    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0. 0.0 Safari/537. 36 Edg/121. 0.0.0',
-    
-    # Edge on macOS
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 Edg/120. 0.0.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0. 0.0 Safari/537. 36 Edg/119. 0.0.0',
-    
-    # Opera on Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0. 0 Safari/537.36 OPR/105.0.0.0',
-    
-    # Opera on macOS
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 OPR/106. 0.0.0',
-    
-    # Brave on Windows
-    'Mozilla/5. 0 (Windows NT 10. 0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 0.0 Safari/537. 36 Brave/120.0.0.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Brave/119.0.0.0',
-    
-    # Vivaldi on Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0. 0 Safari/537.36 Vivaldi/6.5',
-    
-    # Chrome on Windows with different Windows versions
-    'Mozilla/5. 0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    
-    # Mobile User Agents (useful for variety)
-    'Mozilla/5. 0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0. 6099.144 Mobile Safari/537.36',
-    'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537. 36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537. 36',
-]
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 
 
 SITE_CONFIG = {
     "amazon.ae": {
         "CSV": "WEIGHT_data_Amazon_ae2.csv",
-        "START_ROW": 2,
-        "END_ROW": 3000,
+        "START_ROW": 3001,
+        "END_ROW": 3200,
     },
     "amazon.in": {
         "CSV": "WEIGHT_data_Amazon_in2.csv",
-        "START_ROW": 2,
-        "END_ROW": 3000,
+        "START_ROW": 3001,
+        "END_ROW": 3200,
     },
     "amazon.com": {
         "CSV": "WEIGHT_data_Amazon_com2.csv",
-        "START_ROW": 2,
-        "END_ROW": 3000,
+        "START_ROW": 3001,
+        "END_ROW": 3200,
     }
 }
 
-def create_browser_with_anti_detection(user_agent_index):
+def create_browser_with_anti_detection():
     """
     Creates an undetected Chrome browser with anti-detection measures enabled.
     This makes our scraper look like a real human browsing, not a bot. 
@@ -130,7 +58,7 @@ def create_browser_with_anti_detection(user_agent_index):
     # Window settings
     options.add_argument("--start-maximized")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument(f"user-agent={USER_AGENTS[user_agent_index]}")
+    options.add_argument(f"user-agent={USER_AGENT}")
     # Anti-detection settings (undetected_chromedriver handles most of these automatically)
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-dev-shm-usage")
@@ -142,8 +70,8 @@ def create_browser_with_anti_detection(user_agent_index):
     options.add_argument("--js-flags=--max-old-space-size=4096")
     
     # Random user agent
-    user_agent = random.choice(USER_AGENTS)
-    options.add_argument(f"user-agent={user_agent_index}")
+    # user_agent = random.choice(USER_AGENTS)
+    # options.add_argument(f"user-agent={user_agent_index}")
     
     # Additional privacy/stealth settings
     options.add_argument("--disable-popup-blocking")
@@ -170,11 +98,11 @@ def create_browser_with_anti_detection(user_agent_index):
             version_main=142,  # Uncomment and set your Chrome version if needed
         )
         
-        print(f"   ✅ Undetected Chrome browser created successfully with user agent {USER_AGENTS[user_agent_index]}")
+        # print(f"   ✅ Undetected Chrome browser created successfully with user agent {USER_AGENTS[user_agent_index]}")
         
         # Additional stealth scripts (optional, but helpful)
         browser.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": user_agent
+            "userAgent": USER_AGENT
         })
         
         # Set navigator properties to appear more human
@@ -677,7 +605,7 @@ def search_and_scrape_data(site):
     file_exists = os.path.exists(output_csv) and os.path.getsize(output_csv) > 0
     search_count = 0
     batch_number = 0
-    browser = create_browser_with_anti_detection(user_agent_index=batch_number)
+    browser = create_browser_with_anti_detection()
 
     # Process each product
     processed_count = 0
@@ -715,7 +643,7 @@ def search_and_scrape_data(site):
                 # Create new browser with new user agent
                 batch_number += 1
                 print(f"\n   🆕 Creating new browser instance (Batch #{batch_number})...")
-                browser = create_browser_with_anti_detection(user_agent_index=batch_number)
+                browser = create_browser_with_anti_detection()
                 print(f"{'='*80}\n")
             
             print(f"🔎 Product {processed_count}/{len(df_to_process)}: {full_Variant_name}")
