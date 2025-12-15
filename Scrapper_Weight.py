@@ -31,18 +31,18 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 SITE_CONFIG = {
     "amazon.ae": {
         "CSV": "WEIGHT_data_Amazon_ae2.csv",
-        "START_ROW": 3001,
-        "END_ROW": 3200,
+        "START_ROW": 3201,
+        "END_ROW": 3460,
     },
     "amazon.in": {
         "CSV": "WEIGHT_data_Amazon_in2.csv",
-        "START_ROW": 3001,
-        "END_ROW": 3200,
+        "START_ROW": 3201,
+        "END_ROW": 3460,
     },
     "amazon.com": {
         "CSV": "WEIGHT_data_Amazon_com2.csv",
-        "START_ROW": 3001,
-        "END_ROW": 3200,
+        "START_ROW": 3201,
+        "END_ROW": 3460,
     }
 }
 
@@ -171,7 +171,6 @@ def extract_weight(browser):
                    "div.content-grid-block table.a-bordered tr",
                    "table.a-bordered tr"]
         
-        detail_items = []
         #  Try each selector until we find weight
         for selector_index, selector in enumerate(selectors, 1):
             try:
@@ -628,16 +627,18 @@ def search_and_scrape_data(site):
                 print(f"🔄 BROWSER REFRESH CYCLE: Search count reached {search_count}")
                 print(f"{'='*80}")
                 
-                # Close current browser
+                # Wait 2-3 minutes
                 print("   🔒 Closing current browser...")
+                
+                wait_minutes = random.randint(120, 180)
+                time.sleep(wait_minutes)
+                print(f"   ⏸️ Cooling down for {wait_minutes // 60}m {wait_minutes % 60}s...")
+                
+                # Close current browser
                 try:
                     browser.quit()
                 except:
                     pass
-                
-                # Wait 2-3 minutes
-                wait_minutes = random.randint(120, 180)
-                print(f"   ⏸️ Cooling down for {wait_minutes // 60}m {wait_minutes % 60}s...")
                 
                 
                 # Create new browser with new user agent

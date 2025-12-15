@@ -5,70 +5,132 @@ import random
 import pandas as pd
 import requests
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium. webdriver.common.by import By
+from selenium. webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+import undetected_chromedriver as uc
+import random
+
+from Scrapper import search_duckduckgo_and_get_amazon_url
 
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"
-SHEET_NAME = "Variant"
+SHEET_NAME = "Sheet3"
 OUTPUT_EXCEL = "Scraped_Product_Data2.xlsx"
-MAX_WORD = 10
+MAX_WORD = 11
 GEO_KEYWORD = "Dubai"
 
 # Realistic user agent
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 SITE_CONFIG = {
     "amazon.ae": {
         "CSV": "ASIN_data_Amazon_ae2.csv",
-        "START_ROW": 5,
-        "END_ROW": 21,
+        "START_ROW": 2,
+        "END_ROW": 3460,
     },
     "amazon.in": {
         "CSV": "ASIN_data_Amazon_in2.csv",
-        "START_ROW": 5,
-        "END_ROW": 21,
+        "START_ROW": 2,
+        "END_ROW": 3460,
     },
     "amazon.com": {
         "CSV": "ASIN_data_Amazon_com2.csv",
-        "START_ROW": 5,
-        "END_ROW": 21,
+        "START_ROW": 2,
+        "END_ROW": 3460,
     }
 }
 
 def create_browser_with_anti_detection():
     """
-    Creates a Chrome browser with anti-detection measures enabled.
-    This makes our scraper look like a real human browsing, not a bot.
+    Creates an undetected Chrome browser with anti-detection measures enabled.
+    This makes our scraper look like a real human browsing, not a bot. 
     """
-    options = Options()
+    
+    # Create options for undetected chrome
+    options = uc.ChromeOptions()
+    
+    # Window settings
     options.add_argument("--start-maximized")
-    
-    # Critical anti-detection settings
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument("--window-size=1920,1080")
     options.add_argument(f"user-agent={USER_AGENT}")
+    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
     
-    service = Service(ChromeDriverManager().install())
-    browser = webdriver.Chrome(service=service, options=options)
+    # Memory limits
+    options.add_argument("--max_old_space_size=4096")  # Limit memory to 4GB
+    options.add_argument("--js-flags=--max-old-space-size=4096")
     
-    # Hide the webdriver property that websites use to detect automation
-    browser.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-        'source': '''
+    # Random user agent
+    # user_agent = random.choice(USER_AGENTS)
+    # options.add_argument(f"user-agent={user_agent_index}")
+    
+    # Additional privacy/stealth settings
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-extensions")
+    
+    
+    # Preferences to appear more human-like
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.managed_default_content_settings.images": 1,  # Load images
+    }
+    options.add_experimental_option("prefs", prefs)
+    
+    try:
+        # Create undetected Chrome browser
+        # version_main parameter should match your installed Chrome version
+        # If not specified, it will try to auto-detect
+        browser = uc.Chrome(
+            options=options,
+            use_subprocess=True,  # More stable
+            version_main=142,  # Uncomment and set your Chrome version if needed
+        )
+        
+        # print(f"   ✅ Undetected Chrome browser created successfully with user agent {USER_AGENTS[user_agent_index]}")
+        
+        # Additional stealth scripts (optional, but helpful)
+        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": USER_AGENT
+        })
+        
+        # Set navigator properties to appear more human
+        browser.execute_script("""
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
-            })
-        '''
-    })
-    
-    return browser
+            });
+            
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+            
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
+        """)
+        
+        return browser
+        
+    except Exception as e:
+        print(f"   ❌ Error creating undetected browser: {e}")
+        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
+        raise
 
 def extract_asin_from_url(url):
     """
@@ -94,25 +156,64 @@ def extract_asin_from_page(browser):
     """
     try:
         # Find all list items in the detail bullets
-        detail_items = browser.find_elements(By.CSS_SELECTOR, "#detailBullets_feature_div li")
+        selectors=["#detailBullets_feature_div li",
+                   "#productDetails_techSpec_section_1 tr",
+                   "#productDetails_detailBullets_sections1 tr",
+                   "#productDetails_techSpec_section_2 tr",
+                   "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
+                   "div.content-grid-block table.a-bordered tr",
+                   "table.a-bordered tr"]
         
-        for item in detail_items:
+        #  Try each selector until we find weight
+        for selector_index, selector in enumerate(selectors, 1):
             try:
-                item_text = item.text
-                # Check if this item contains "ASIN"
-                if "ASIN" in item_text:
-                    # Extract the ASIN value (10 character alphanumeric code)
-                    match = re.search(r'ASIN\s*(?::\s*)?([A-Z0-9]{10})', item_text)
-                    if match:
-                        asin = match.group(1)
-                        print(f"      ✓ Found ASIN from detail bullets: {asin}")
-                        return asin
-            except:
+                elements = browser.find_elements(By.CSS_SELECTOR, selector)
+                
+                if not elements:
+                    print(f"No elements found, trying next...")
+                    continue
+                
+                
+                # Search through all elements from this selector for weight
+                for item in elements:
+                    try:
+                        item_text = item.text.strip()
+                        
+                        print(item_text)
+                        # Skip empty rows
+                        if not item_text:
+                            continue
+
+                        # Check if this item contains "ASIN"
+                        if "ASIN" in item_text:
+                            # Extract the ASIN value (10 character alphanumeric code)
+                            match = re.search(r'ASIN\s*(?::\s*)?([A-Z0-9]{10})', item_text)
+                            if match:
+                                asin = match.group(1)
+                                print(f"      ✓ Found ASIN from detail bullets: {asin}")
+                                return asin
+                            
+                    except Exception as e:
+                        # Error with individual element, continue to next
+                        continue
+                
+                # Finished checking all elements from this selector without finding ASIN
+                print(f" ⏭️  Selector {selector_index}: No ASIN found in these elements, trying next selector...")
+                
+            except Exception as e:
+                print(f"      ⚠️  Selector {selector_index} error: {e}")
                 continue
-    except:
-        pass
-    
-    return None
+        
+        # If we've tried all selectors and found nothing
+        print(" ❌ ASIN not found in any location")
+        return "Not Found"
+
+    except Exception as e:
+        print(f" ❌ Error extracting ASIN: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return "Not Found"
+
 
 def extract_asin(browser, url):
     """
@@ -189,7 +290,7 @@ def extract_price(browser):
         
     except Exception as e:
         print(f"      ✗ Price not found: {e}")
-        return "Not Found"
+        return "Currently Unavailable" if e else "Not Found"
 
 def extract_launch_date(browser):
     """
@@ -198,37 +299,97 @@ def extract_launch_date(browser):
     
     Example: "Date First Available : 12 December 2023"
     """
+    # try:
+    #     # Find all list items in the detail bullets
+    #     # Try detail bullets first (modern Amazon layout)
+    #     detail_items = browser.find_elements(By.CSS_SELECTOR, "#detailBullets_feature_div li")
+        
+    #     # If not found, try the table layout (older/alternate Amazon layout)
+    #     if not detail_items:
+    #         detail_items = browser.find_elements(By.CSS_SELECTOR, "#productDetails_detailBullets_sections1 tr")
+        
+    #     for item in detail_items:
+    #         try:
+    #             item_text = item.text
+    #             # Look for "Date First Available" in the text
+    #             if "Product Dimensions" in item_text or "Release Date" in item_text:
+    #                 # Extract the date part (everything after the colon)
+    #                 match = re.search(r'(?:Date First Available|Release Date)\s*(?::\s*)?(.+?)(?:\n|$)', item_text)
+    #                 if match:
+    #                     date = match.group(1).strip()
+    #                     print(f"      ✓ Found launch date: {date}")
+    #                     return date
+    #         except:
+    #             continue
+    # except:
+    #     pass
+    
+    # print(f"      ✗ Launch date not found")
+    # return "Not Found"
+
     try:
         # Find all list items in the detail bullets
-        # Try detail bullets first (modern Amazon layout)
-        detail_items = browser.find_elements(By.CSS_SELECTOR, "#detailBullets_feature_div li")
+        selectors=["#detailBullets_feature_div li",
+                   "#productDetails_techSpec_section_1 tr",
+                   "#productDetails_detailBullets_sections1 tr",
+                   "#productDetails_techSpec_section_2 tr",
+                   "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
+                   "div.content-grid-block table.a-bordered tr",
+                   "table.a-bordered tr"]
         
-        # If not found, try the table layout (older/alternate Amazon layout)
-        if not detail_items:
-            detail_items = browser.find_elements(By.CSS_SELECTOR, "#productDetails_detailBullets_sections1 tr")
-        
-        for item in detail_items:
+        #  Try each selector until we find weight
+        for selector_index, selector in enumerate(selectors, 1):
             try:
-                item_text = item.text
-                # Look for "Date First Available" in the text
-                if "Product Dimensions" in item_text or "Release Date" in item_text:
-                    # Extract the date part (everything after the colon)
-                    match = re.search(r'(?:Date First Available|Release Date)\s*(?::\s*)?(.+?)(?:\n|$)', item_text)
-                    if match:
-                        date = match.group(1).strip()
-                        print(f"      ✓ Found launch date: {date}")
-                        return date
-            except:
-                continue
-    except:
-        pass
-    
-    print(f"      ✗ Launch date not found")
-    return "Not Found"
+                elements = browser.find_elements(By.CSS_SELECTOR, selector)
+                
+                if not elements:
+                    print(f"No elements found, trying next...")
+                    continue
+                
+                
+                # Search through all elements from this selector for weight
+                for item in elements:
+                    try:
+                        item_text = item.text.strip()
+                        
+                        # Skip empty rows
+                        if not item_text:
+                            continue
 
-def extract_product_condition(productName):
+                        # Check if this item contains "Date First Available" or "Release Date"
+                        if "Product Dimensions" in item_text or "Date First Available" in item_text or "Release Date" in item_text:
+                            # Extract the date part (everything after the colon)
+                            match = re.search(r'(?:Date First Available|Release Date)\s*(?::\s*)?(.+?)(?:\n|$)', item_text)
+                            if match:
+                                date = match.group(1).strip()
+                                print(f"      ✓ Found launch date: {date}")
+                                return date
+
+                    except Exception as e:
+                        # Error with individual element, continue to next
+                        continue
+                
+                # Finished checking all elements from this selector without finding Release Date
+                print(f" ⏭️  Selector {selector_index}: No Release Data found in these elements, trying next selector...")
+                
+            except Exception as e:
+                print(f"      ⚠️  Selector {selector_index} error: {e}")
+                continue
+        
+        # If we've tried all selectors and found nothing
+        print(" ❌ Release Data not found in any location")
+        return "Not Found"
+
+    except Exception as e:
+        print(f" ❌ Error extracting Release Date: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return "Not Found"
+
+def extract_product_condition(productName, browser):
     """
     Determine product condition based on keywords in the product name.
+    First checks if refurbished badge exists on the page, then checks product name keywords.
     """
     condition_keywords = {
         "Used": ["used", "pre-owned", "second hand"],
@@ -237,19 +398,27 @@ def extract_product_condition(productName):
     }
     
     productNameLower = productName.lower()
+    print(f" Checking product condition for: {productNameLower}")
+    
+    try:
+        for condition, keywords in condition_keywords.items():
+            for keyword in keywords:
+                if keyword in productNameLower:
+                    print(f"Detected product condition: {condition} (keyword: '{keyword}')")
+                    return condition
+    except Exception as e:
+        print(f" Could not check product name keywords: {e}")
 
-    print(productNameLower)
+    # Check if refurbished badge element exists on the page
+    refurbished_elements = browser.find_elements(By.CSS_SELECTOR, ".refurbished-badge-wrapper i.a-icon.a-icon-addon.refurbished-badge")
+    if refurbished_elements and len(refurbished_elements) > 0:
+        print(f"   Detected product condition: Refurbished (badge found on page)")
+        return "Refurbished"
     
-    for condition, keywords in condition_keywords.items():
-        for keyword in keywords:
-            if keyword in productNameLower:
-                print(f"      ✓ Detected product condition: {condition}")
-                return condition
-    
-    print(f"      ✓ Product condition assumed: New")
+    print(f"  Product condition assumed: New (no indicators found)")
     return "New"
     
-def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
+def scrape_product_data(product_url, browser):
     """
     Extract all product data from an Amazon product page.
     
@@ -271,8 +440,9 @@ def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
     """
     data = {
         "product_name": "Not Found",
-        "asin": "Not Found",
+        "product_condition":"Not Found",
         "price": "Not Found",
+        "asin": "Not Found",
         "launch_date": "Not Found",
         "status": "Pending"
     }
@@ -293,12 +463,15 @@ def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
         
         # Extract each data point (correct order: product_name, asin, launch_date, price)
         data["product_name"] = extract_product_name(browser)
-        data["product_condition"] = extract_product_condition(data["product_name"])
+        data["product_condition"] = extract_product_condition(data["product_name"], browser)
+        data["price"] = extract_price(browser)
         data["asin"] = extract_asin(browser, product_url)
         data["launch_date"] = extract_launch_date(browser)
-        data["price"] = extract_price(browser)
         
-        data["status"] = "Success"
+        #only mark status success if all data points found
+        data["status"] = "Success" if data["asin"] != "Not Found" and data["price"] != "Not Found" and data["launch_date"]!="Not Found" and data["product_name"]!="Not Found" and data["product_condition"]!="Not Found" else "Partial Data"
+
+
         print(f"   ✅ Data extraction successful")
         return data
         
@@ -306,32 +479,33 @@ def scrape_product_data(product_url, browser, retry_count=0, max_retries=1):
         print(f"   ❌ Error loading page: {str(e)}")
         
         # Retry strategy: if we haven't exceeded max retries, try again with fresh browser
-        if retry_count < max_retries:
-            print(f"   🔄 Retrying with new browser instance ({retry_count + 1}/{max_retries})...")
-            time.sleep(random.uniform(3, 5))
+        # if retry_count < max_retries:
+        #     print(f"   🔄 Retrying with new browser instance ({retry_count + 1}/{max_retries})...")
+        #     time.sleep(random.uniform(3, 5))
             
-            # Close current browser and create a new one
-            try:
-                browser.quit()
-            except:
-                pass
+        #     # Close current browser and create a new one
+        #     try:
+        #         browser.quit()
+        #     except:
+        #         pass
             
-            new_browser = create_browser_with_anti_detection()
-            result = scrape_product_data(product_url, new_browser, retry_count + 1, max_retries)
+        #     new_browser = create_browser_with_anti_detection()
+        #     result = scrape_product_data(product_url, new_browser, retry_count + 1, max_retries)
             
-            try:
-                new_browser.quit()
-            except:
-                pass
+        #     try:
+        #         new_browser.quit()
+        #     except:
+        #         pass
             
-            return result
-        else:
-            # Max retries exceeded, mark as failed
-            data["status"] = "Data Extraction Failed"
-            print(f"   ⚠️  Max retries exceeded")
-            return data
+        #     return result
+        # else:
+        #     # Max retries exceeded, mark as failed
+        #     data["status"] = "Data Extraction Failed"
+        #     print(f"   ⚠️  Max retries exceeded")
 
-def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):
+        return data
+
+def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYWORD):
     """
     Search Google for Amazon product URLs with enhanced anti-detection measures.
     
@@ -342,7 +516,7 @@ def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYW
     - Better error handling and debugging
     
     Args:
-        variant_name: The product name to search for
+        Variant_name: The product name to search for
         browser: Selenium webdriver instance
         geo_keyword: Location keyword to append (default: "Dubai")
     
@@ -365,7 +539,7 @@ def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYW
             return None, None
         
         # Step 2: Create the geo-targeted search query
-        search_query = f"{variant_name} {geo_keyword}"
+        search_query = f"{Variant_name} {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
         
         # Step 3: Find Google's search box using multiple selectors
@@ -378,6 +552,7 @@ def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYW
             (By.XPATH, "//input[@name='q']")
         ]
         
+
         for selector_type, selector_value in selectors_to_try:
             try:
                 search_box = WebDriverWait(browser, 5).until(
@@ -400,12 +575,26 @@ def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYW
             search_box.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
+        time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         search_box.send_keys(Keys.ENTER)
         
+        time.sleep(random.uniform(10,30))
+
         # Step 5: Wait for search results to load with multiple strategies
         print("   ⏳ Waiting for search results...")
-        time.sleep(random.uniform(3, 5))  # Give Google time to fully render
+        time.sleep(random.uniform(1,10))  # Give Google time to fully render
+
+        # NEW: Simple human-like scrolling
+        print("   📜 Scanning results...")
+        for _ in range(random.randint(2, 4)):  # 2-4 scroll actions
+            scroll_distance = random. randint(300, 600)
+            browser.execute_script(f"window.scrollBy({{top: {scroll_distance}, behavior: 'smooth'}});")
+            time.sleep(random.uniform(0.6, 1.2))
+
+        # Scroll back to top
+        browser.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
+        time.sleep(random.uniform(0.8, 1.5))
+
         
         # Try multiple selectors for search results
         search_results = []
@@ -497,9 +686,6 @@ def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYW
         
         return None, None
 
-def shorten_variant_name(name, max_word):
-    """Shorten product name for cleaner searches"""
-    return ' '.join(name.split()[:max_word])
 
 def search_and_scrape_data(site):
     """
@@ -522,52 +708,113 @@ def search_and_scrape_data(site):
     print(f"🌍 Using geo-keyword: '{GEO_KEYWORD}'")
     print(f"{'='*80}\n")
     
-    # Read input Excel file with product variants
+    # Read input Excel
     try:
         full_df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME)
         full_df = full_df.iloc[cfg["START_ROW"]-2:cfg["END_ROW"]]
+        
+        
     except Exception as e:
         print(f"❌ Error reading Excel file: {e}")
         return
     
     output_csv = cfg["CSV"]
     
-    # Check if we're resuming from a previous run
-    if os.path.exists(output_csv) and os.path.getsize(output_csv) > 0:
+    # Check for existing progress
+    if os.path.exists(output_csv) and os.path. getsize(output_csv) > 0:
         try:
-            processed_df = pd.read_csv(output_csv)
+            processed_df = pd.read_csv(output_csv, skipinitialspace=True)
+            processed_df.columns = [col.strip() for col in processed_df.columns]  # <-- Add this line
             processed_ids = set(processed_df['variant_id'].astype(str))
             df_to_process = full_df[~full_df['variant_id'].astype(str).isin(processed_ids)]
-            print(f"📄 Resuming... {len(processed_df)} products already processed\n")
-        except:
+            
+            print(f"📄 Resuming...  {len(processed_df)} products already processed")
+            print(f"📋 Remaining products: {len(df_to_process)}\n")
+            
+        except Exception as e:
+            print(f"⚠️ Could not load progress: {e}")
+            import traceback
+            traceback.print_exc()
             df_to_process = full_df.copy()
     else:
         df_to_process = full_df.copy()
         print(f"📄 Starting fresh with {len(df_to_process)} products\n")
     
-    # Create browser with anti-detection measures
+    if len(df_to_process) == 0:
+        print("✅ All products already processed!")
+        # Still convert to Excel
+        convert_csv_to_excel(output_csv)
+        return
+        
+        # Create browser with anti-detection measures
+    file_exists = os.path.exists(output_csv) and os.path.getsize(output_csv) > 0
+    search_count = 0
+    batch_number = 0
     browser = create_browser_with_anti_detection()
-    file_exists = os.path.exists(output_csv)
-    
+
+    # Define the correct column order for output
+    columns = [
+        "variant_id",
+        "variant_name",
+        "status",
+        "asin",
+        "price",
+        "launch_date",
+        "product_name",
+        "product_condition",
+        "product_url"
+    ]
     # Process each product
+    processed_count = 0
     for index, row in df_to_process.iterrows():
         product_start_time = time.time()
+        search_count += 1
         
         try:
-            variant_id = str(row['variant_id']).strip()
-            full_variant_name = str(row['variant_name']).strip()
-            variant_name = shorten_variant_name(full_variant_name, MAX_WORD)
+            Variant_id = str(row['variant_id']).strip()
+            full_Variant_name = str(row['variant_name']).strip()
             
-            if not variant_id or not variant_name:
+            if not Variant_id or not full_Variant_name:
                 continue
             
-            print(f"{'='*80}")
-            print(f"🔎 Product: {full_variant_name}")
-            print(f"🆔 ID: {variant_id}")
-            print(f"{'='*80}")
+            processed_count += 1
             
-            # Search for product on Google
-            product_url, amazon_site = search_google_and_get_amazon_url(variant_name, browser)
+            # Check if search_count is divisible by 15
+            if search_count % 15 == 0:
+                print(f"\n{'='*80}")
+                print(f"🔄 BROWSER REFRESH CYCLE: Search count reached {search_count}")
+                print(f"{'='*80}")
+                
+                # Close current browser
+                print("   🔒 Closing current browser...")
+                try:
+                    browser.quit()
+                except:
+                    pass
+                
+                # Wait 2-3 minutes
+                wait_minutes = random.randint(120, 180)
+                time.sleep(wait_minutes)
+                print(f"   ⏸️ Cooling down for {wait_minutes // 60}m {wait_minutes % 60}s...")
+                
+                
+                # Create new browser with new user agent
+                batch_number += 1
+                print(f"\n   🆕 Creating new browser instance (Batch #{batch_number})...")
+                browser = create_browser_with_anti_detection()
+                print(f"{'='*80}\n")
+            
+            print(f"🔎 Product {processed_count}/{len(df_to_process)}: {full_Variant_name}")
+            print(f"📊 Search Count: {search_count}")
+            print(f"🆔 ID: {Variant_id}")
+            
+            # Search for product on DuckDuckGo first
+            product_url, amazon_site =  search_duckduckgo_and_get_amazon_url(full_Variant_name, browser)
+            
+            # Fallback to Google if no results
+            if not product_url:
+                print("   🔄 DuckDuckGo search failed, trying Google as fallback...")
+                product_url, amazon_site = search_google_and_get_amazon_url(full_Variant_name, browser)
             
             if product_url:
                 print(f"   📦 Found on {amazon_site}")
@@ -575,101 +822,119 @@ def search_and_scrape_data(site):
                 # Extract data from the product page
                 product_data = scrape_product_data(product_url, browser)
                 
-                # Combine variant info with scraped data
+                # Write row in correct column order
                 row_data = {
-                    "variant_id": variant_id,
-                    "variant_name": full_variant_name,
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
+                    "status": product_data["status"],
                     "asin": product_data["asin"],
-                    "launch_date": product_data["launch_date"],
                     "price": product_data["price"],
+                    "launch_date": product_data["launch_date"],
                     "product_name": product_data["product_name"],
                     "product_condition": product_data["product_condition"],
-                    "product_url": product_url,
-                    "status": product_data["status"]
+                    "product_url": product_url
                 }
             else:
                 print(f"   ⚠️  Product URL not found on Google")
                 
                 row_data = {
-                    "variant_id": variant_id,
-                    "variant_name": full_variant_name,
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
+                    "status": "URL Not Found",
                     "asin": "Not Found",
                     "price": "Not Found",
                     "launch_date": "Not Found",
                     "product_name": "Not Found",
                     "product_condition": "Not Found",
-                    "product_url": "Not Found",
-                    "status": "URL Not Found"
+                    "product_url": "Not Found"
                 }
             
-            # Save to CSV
-            result_df = pd.DataFrame([row_data])
+            # Save to CSV with correct header and order
+            result_df = pd.DataFrame([row_data], columns=columns)
             result_df.to_csv(output_csv, mode='a', header=not file_exists, index=False)
             file_exists = True
             
+            # ✅ FIXED: Calculate and display progress - removed space before .2f
+            product_time = time.time() - product_start_time
+            print(f"   ⏱️ Product processed in {product_time:.2f}s")
+            
             # Human-like delay before next search
             wait_time = random.randint(4, 7)
-            print(f"   ⏳ Waiting {wait_time} seconds...\n")
+            print(f"   ⏳ Waiting {wait_time} seconds.. .\n")
             time.sleep(wait_time)
             
         except Exception as e:
             print(f"   ❌ Error processing product: {str(e)}\n")
+            import traceback
+            traceback.print_exc()  # This will show the exact line causing the error
+            
+            # Optionally save error entry
+            try:
+                error_row = {
+                    "variant_id": Variant_id,
+                    "variant_name": full_Variant_name,
+                    "status": f"Error: {str(e)[:50]}",
+                    "asin": "Error",
+                    "price": "Error",
+                    "launch_date": "Error",
+                    "product_name": "Error",
+                    "product_condition": "Error",
+                    "product_url": "Error"
+                }
+                result_df = pd.DataFrame([error_row], columns=columns)
+                result_df.to_csv(output_csv, mode='a', header=not file_exists, index=False)
+                file_exists = True
+            except:
+                pass
             continue
-    
-    # Close browser
+
+    # Close browser if still open
     try:
         browser.quit()
     except:
         pass
-    
-    # Convert CSV to Excel with proper formatting
+
+    # Convert CSV to Excel
+    convert_csv_to_excel(output_csv)
+
+    elapsed = time.time() - total_start_time
+    hours, rem = divmod(elapsed, 3600)
+    minutes, seconds = divmod(rem, 60)
+
+    print(f"{'='*80}")
+    print(f"🏁 Scraping completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"⏱️ Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
+    print(f"📊 Total searches performed: {search_count}")
+    print(f"📊 Total products processed: {processed_count}")
+    print(f"{'='*80}\n")    
+
+def convert_csv_to_excel(output_csv):
+    """Separate function to convert CSV to Excel"""
     print(f"\n{'='*80}")
     print(f"📊 Converting to Excel format...")
     
     try:
         csv_df = pd.read_csv(output_csv)
-        
-        # Define column order to match row_data structure
-        column_order = [
-            "variant_id",
-            "variant_name",
-            "asin",
-            "price",
-            "launch_date",
-            "product_name",
-            "product_url",
-            "status"
-        ]
-        
-        # Reorder columns in dataframe
-        csv_df = csv_df[[col for col in column_order if col in csv_df.columns]]
-        
         excel_path = OUTPUT_EXCEL
         
-        # Create Excel writer with formatting
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
             csv_df.to_excel(writer, sheet_name='Products', index=False)
             
-            # Auto-adjust column widths
-            from openpyxl.utils import get_column_letter
+            from openpyxl. utils import get_column_letter
             worksheet = writer.sheets['Products']
             
-            for idx, col in enumerate(csv_df.columns, 1):
-                max_length = max(csv_df[col].astype(str).map(len).max(), len(col))
+            for idx, col in enumerate(csv_df. columns, 1):
+                max_length = max(csv_df[col].astype(str). map(len).max(), len(col))
                 worksheet.column_dimensions[get_column_letter(idx)].width = min(max_length + 2, 50)
         
         print(f"✅ Excel file created: {excel_path}")
+        print(f"📊 Total products in Excel: {len(csv_df)}")
+        
     except Exception as e:
-        print(f"⚠️  Could not create Excel file: {e}")
-        print(f"   CSV file available at: {output_csv}")
-    elapsed = time.time() - total_start_time
-    hours, rem = divmod(elapsed, 3600)
-    minutes, seconds = divmod(rem, 60)
-    
-    print(f"{'='*80}")
-    print(f"🏁 Scraping completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"⏱️  Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
-    print(f"{'='*80}\n")
+        print(f"⚠️ Could not create Excel file: {e}")
+        import traceback
+        traceback. print_exc()
+
 
 if __name__ == "__main__":
     print("\n" + "="*80)
@@ -684,7 +949,7 @@ if __name__ == "__main__":
     print("\nOutput: Excel file with all product data")
     print("="*80 + "\n")
     
-    site_choice = input("Enter site (amazon.ae / amazon.in / amazon.com): ").strip().lower()
+    site_choice = "amazon.ae"  # Change this to "amazon.in" or "amazon.com" as needed
     
     if site_choice in SITE_CONFIG:
         search_and_scrape_data(site_choice)

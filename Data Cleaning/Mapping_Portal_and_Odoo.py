@@ -1,8 +1,8 @@
 import pandas as pd
 
 # Load datasets
-portal = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3 Production Qty.xlsx")
-odoo = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Retail Stock.xlsx")
+portal = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal Stock.xlsx")
+odoo = pd.read_excel(r"C:\Users\Ahsan\Downloads\odoo stock.xlsx")
 
 # ---- FIX PORTAL COLUMNS ----
 portal.rename(columns={"Variant ID": "VariantID"}, inplace=True)
@@ -33,7 +33,7 @@ odoo_melted = odoo.melt(
 )
 
 # Keep only rows where OdooQty is not empty
-odoo_melted["OdooQty"] = odoo_melted["OdooQty"].fillna(0).astype(int)
+odoo_melted["OdooQty"] = pd.to_numeric(odoo_melted["OdooQty"], errors='coerce').fillna(0).astype(int)
 odoo_melted = odoo_melted[odoo_melted["OdooQty"] > 0]
 
 # ---- MELT PORTAL TOO ----
