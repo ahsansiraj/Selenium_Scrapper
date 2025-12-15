@@ -11,8 +11,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 import undetected_chromedriver as uc
 import random
+import re
 
-from Scrapper import search_duckduckgo_and_get_amazon_url
+from search_engines import search_duckduckgo_and_get_amazon_url
 
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"
@@ -132,64 +133,79 @@ def create_browser_with_anti_detection():
         print("   💡 Make sure you have installed: pip install undetected-chromedriver")
         raise
 
+
 def extract_asin_from_url(url):
     """
-    Extract ASIN from Amazon URL.
-    ASIN always appears after /dp/ in the URL.
+    Extract ASIN from Amazon URLs using regex patterns.
     
-    Example: https://www.amazon.ae/.../dp/B085BF8WSX?... → B085BF8WSX
+    Examples:
+    - https://www.amazon.ae/. ../dp/B09G98MBX1 → B09G98MBX1
+    - https://www.amazon.ae/.../dp/B09G98MBX1?th=1 → B09G98MBX1
+    - https://www.amazon.ae/.../dp/B09G98MBX1/ref=...  → B09G98MBX1
     """
-    try:
-        match = re.search(r'/dp/([A-Z0-9]{10})', url)
+    try: 
+        # Match /dp/ followed by 1-10 alphanumeric characters (uppercase letters and digits)
+        # Stop at:  ?, /, #, or end of string
+        match = re.search(r'/dp/([A-Z0-9]{1,10})(?:[/?#]|$)', url, re.IGNORECASE)
         if match:
-            return match.group(1)
-    except:
-        pass
+            asin = match.group(1).upper()  # Normalize to uppercase
+            print(f"      ✓ Extracted ASIN from URL: {asin}")
+            return asin
+        
+        # Alternative pattern:  sometimes ASIN is in /gp/product/
+        match = re.search(r'/gp/product/([A-Z0-9]{1,10})(?:[/?#]|$)', url, re.IGNORECASE)
+        if match:
+            asin = match.group(1).upper()
+            print(f"      ✓ Extracted ASIN from URL (gp/product): {asin}")
+            return asin
+            
+    except Exception as e: 
+        print(f"      ⚠️ Error extracting ASIN from URL: {e}")
+    
     return None
+
 
 def extract_asin_from_page(browser):
     """
-    Extract ASIN from the detail bullets section on the product page.
-    This is more reliable than URL extraction as it's the official source.
+    Extract ASIN from the detail bullets section on the product page. 
+    This is more reliable than URL extraction as it's the official source. 
     
     Looks for: <li>...<span class="a-text-bold">ASIN</span>...<span>B085BF8WSX</span>...</li>
     """
     try:
         # Find all list items in the detail bullets
-        selectors=["#detailBullets_feature_div li",
-                   "#productDetails_techSpec_section_1 tr",
-                   "#productDetails_detailBullets_sections1 tr",
-                   "#productDetails_techSpec_section_2 tr",
-                   "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
-                   "div.content-grid-block table.a-bordered tr",
-                   "table.a-bordered tr"]
+        selectors = [
+            "#detailBullets_feature_div li",
+            "#productDetails_techSpec_section_1 tr",
+            "#productDetails_detailBullets_sections1 tr",
+            "#productDetails_techSpec_section_2 tr",
+            "div.a-column.a-span6.block-content.block-type-table.textalign-left.a-span-last div.content-grid-block table tr",
+            "div.content-grid-block table.a-bordered tr",
+            "table.a-bordered tr"
+        ]
         
-        #  Try each selector until we find weight
+        # Try each selector until we find ASIN
         for selector_index, selector in enumerate(selectors, 1):
             try:
                 elements = browser.find_elements(By.CSS_SELECTOR, selector)
                 
                 if not elements:
-                    print(f"No elements found, trying next...")
                     continue
                 
-                
-                # Search through all elements from this selector for weight
-                for item in elements:
+                # Search through all elements from this selector for ASIN
+                for item in elements: 
                     try:
                         item_text = item.text.strip()
                         
-                        print(item_text)
                         # Skip empty rows
                         if not item_text:
                             continue
 
-                        # Check if this item contains "ASIN"
-                        if "ASIN" in item_text:
-                            # Extract the ASIN value (10 character alphanumeric code)
-                            match = re.search(r'ASIN\s*(?::\s*)?([A-Z0-9]{10})', item_text)
+                        if "ASIN" in item_text.upper():
+                            # Extract the ASIN value (1-10 character alphanumeric code)
+                            match = re.search(r'ASIN\s*: ?\s*([A-Z0-9]{1,10})', item_text, re.IGNORECASE)
                             if match:
-                                asin = match.group(1)
+                                asin = match.group(1).upper()
                                 print(f"      ✓ Found ASIN from detail bullets: {asin}")
                                 return asin
                             
@@ -197,19 +213,15 @@ def extract_asin_from_page(browser):
                         # Error with individual element, continue to next
                         continue
                 
-                # Finished checking all elements from this selector without finding ASIN
-                print(f" ⏭️  Selector {selector_index}: No ASIN found in these elements, trying next selector...")
-                
             except Exception as e:
-                print(f"      ⚠️  Selector {selector_index} error: {e}")
+                print(f"      ⚠️ Selector {selector_index} error: {e}")
                 continue
         
-        # If we've tried all selectors and found nothing
-        print(" ❌ ASIN not found in any location")
-        return "Not Found"
+        print("      ⚠️ ASIN not found in page elements")
+        return "Not Found"  
 
     except Exception as e:
-        print(f" ❌ Error extracting ASIN: {str(e)}")
+        print(f"      ❌ Error extracting ASIN: {str(e)}")
         import traceback
         traceback.print_exc()
         return "Not Found"
@@ -218,19 +230,24 @@ def extract_asin_from_page(browser):
 def extract_asin(browser, url):
     """
     Extract ASIN using our priority: detail bullets first, then URL fallback.
+    
+    Returns: 
+        str: The ASIN code (e.g., "B09G98MBX1") or "Not Found"
     """
     # Try detail bullets first (more reliable)
     asin = extract_asin_from_page(browser)
-    if asin:
+    
+    # CRITICAL FIX: Check if asin is None or empty, not just truthy
+    if asin and asin != "Not Found":
         return asin
     
     # Fallback to URL extraction
+    print("      🔄 Falling back to URL extraction...")
     asin = extract_asin_from_url(url)
     if asin:
-        print(f"      ✓ Found ASIN from URL: {asin}")
         return asin
     
-    print(f"      ✗ ASIN not found")
+    print(f"      ✗ ASIN not found in page or URL")
     return "Not Found"
 
 def extract_product_name(browser):
@@ -539,7 +556,7 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
             return None, None
         
         # Step 2: Create the geo-targeted search query
-        search_query = f"{Variant_name} {geo_keyword}"
+        search_query = f"{Variant_name} amazon {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
         
         # Step 3: Find Google's search box using multiple selectors
@@ -571,6 +588,7 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
         
         # Step 4: Type the search query character by character (like a human)
         search_box.clear()
+        time.sleep(random.uniform(2, 4))
         for char in search_query:
             search_box.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
@@ -578,11 +596,10 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
         time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         search_box.send_keys(Keys.ENTER)
         
-        time.sleep(random.uniform(10,30))
 
         # Step 5: Wait for search results to load with multiple strategies
         print("   ⏳ Waiting for search results...")
-        time.sleep(random.uniform(1,10))  # Give Google time to fully render
+        time.sleep(random.uniform(2,6))  # Give Google time to fully render
 
         # NEW: Simple human-like scrolling
         print("   📜 Scanning results...")
@@ -657,17 +674,17 @@ def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYW
                 print(f"   ✅ Found amazon.ae URL (boosted by '{geo_keyword}')")
                 return url, "amazon.ae"
         
-        # Priority 2: amazon.in
-        for url in all_urls:
-            if "amazon.in" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.in URL")
-                return url, "amazon.in"
+        # # Priority 2: amazon.in
+        # for url in all_urls:
+        #     if "amazon.in" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.in URL")
+        #         return url, "amazon.in"
         
-        # Priority 3: amazon.com
-        for url in all_urls:
-            if "amazon.com" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.com URL")
-                return url, "amazon.com"
+        # # Priority 3: amazon.com
+        # for url in all_urls:
+        #     if "amazon.com" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.com URL")
+        #         return url, "amazon.com"
         
         print("   ⚠️  No Amazon product URLs found in results")
         print("   💡 This might mean the product isn't available on Amazon")

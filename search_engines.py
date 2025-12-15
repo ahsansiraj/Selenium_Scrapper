@@ -19,7 +19,8 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
     try:
         print("   🔍 Searching on DuckDuckGo...")
         browser.get("https://duckduckgo.com")
-        time.sleep(random.uniform(2,4))
+
+        time.sleep(random.uniform(2, 4))
         
         search_query = f"{variant_name} amazon {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
@@ -29,6 +30,7 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
             EC.presence_of_element_located((By.ID, "searchbox_input"))
         )
         search_box.clear()
+        time.sleep(random.uniform(2, 4))
         for char in search_query:
             search_box.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
@@ -62,15 +64,15 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
                 print(f"   ✅ Found amazon.ae URL")
                 return url, "amazon.ae"
         
-        for url in all_urls:
-            if "amazon.in" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.in URL")
-                return url, "amazon.in"
+        # for url in all_urls:
+        #     if "amazon.in" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.in URL")
+        #         return url, "amazon.in"
         
-        for url in all_urls:
-            if "amazon.com" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.com URL")
-                return url, "amazon.com"
+        # for url in all_urls:
+        #     if "amazon.com" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.com URL")
+        #         return url, "amazon.com"
         
         print("   ⚠️  No Amazon URLs found")
         return None, None

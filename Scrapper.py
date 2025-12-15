@@ -373,6 +373,7 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
             EC.presence_of_element_located((By.ID, "searchbox_input"))
         )
         search_box.clear()
+        
         for char in search_query:
             search_box.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
