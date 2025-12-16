@@ -1,13 +1,20 @@
 import pandas as pd
 
-# Load datasets
-portal = pd.read_excel(r"C:\Users\Ahsan\Downloads\Buy_Price_Portal.xlsx")
-odoo = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 15-12-25 1.xlsx")
+# ================= LOAD FILES =================
 
-# ---- FIX PORTAL COLUMNS ----
-portal.rename(columns={"Variant ID": "VariantID"}, inplace=True)
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Stock_Report_2025-12-16.xlsx")
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\odoo Stock 16-12-25.xlsx")
 
-# Portal grade columns
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\Buy_Price_Portal.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 15-12-25 1.xlsx")
+
+# ================= FIX COLUMN NAMES =================
+
+for df in [portal_stock, odoo_stock, portal_price, odoo_price]:
+    df.rename(columns={"Variant ID": "VariantID"}, inplace=True)
+
+# ================= GRADE COLUMNS =================
+
 grade_cols = [
     "Brand New",
     "OpenBox",
@@ -18,77 +25,142 @@ grade_cols = [
     "Refurbished"
 ]
 
-# ---- FIX ODOO COLUMNS ----
-odoo.rename(columns={"Variant ID": "VariantID"}, inplace=True)
+# ================= MELT ALL FILES =================
 
-# List all grade columns in Odoo except VariantID
-odoo_grade_cols = [col for col in odoo.columns if col != "VariantID"]
+def melt_df(df, value_name, keep_name=False):
+    id_vars = ["VariantID"]
+    if keep_name and "Variant Name" in df.columns:
+        id_vars.append("Variant Name")
 
-# ---- MELT ODOO (convert columns → rows) ----
-odoo_melted = odoo.melt(
-    id_vars=["VariantID"],
-    value_vars=odoo_grade_cols,
-    var_name="Grade",
-    value_name="OdooPrice"
-)
+    melted = df.melt(
+        id_vars=id_vars,
+        value_vars=grade_cols,
+        var_name="Grade",
+        value_name=value_name
+    )
 
-# Keep only rows where OdooPrice is not empty
-odoo_melted["OdooPrice"] = pd.to_numeric(odoo_melted["OdooPrice"], errors='coerce').fillna(0).astype(int)
-odoo_melted = odoo_melted[odoo_melted["OdooPrice"] > 0]
+    melted[value_name] = (
+        pd.to_numeric(melted[value_name], errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
 
-# ---- MELT PORTAL TOO ----
-portal_melted = portal.melt(
-    id_vars=["VariantID", "Variant Name"],
-    value_vars=grade_cols,
-    var_name="Grade",
-    value_name="PortalPrice"
-)
+    return melted
 
-# Convert all non-numeric values (including "Not Set") to NaN,
-# Fill NaN with 0,
-portal_melted["PortalPrice"] = (
-    pd.to_numeric(portal_melted["PortalPrice"], errors='coerce')
-    .fillna(0)
-    .astype(int)
-)
+portal_stock_m = melt_df(portal_stock, "PortalQty", keep_name=True)
+odoo_stock_m   = melt_df(odoo_stock, "OdooQty")
 
-# ---- MERGE BOTH ----
+portal_price_m = melt_df(portal_price, "PortalPrice")
+odoo_price_m   = melt_df(odoo_price, "OdooPrice")
+
+# ================= MERGE STEP BY STEP =================
+
 df = pd.merge(
-    portal_melted,
-    odoo_melted,
+    portal_stock_m,
+    odoo_stock_m,
     on=["VariantID", "Grade"],
     how="outer"
 )
 
-# Fill missing quantities
-df["PortalPrice"] = df["PortalPrice"].fillna(0).astype(int)
-df["OdooPrice"] = df["OdooPrice"].fillna(0).astype(int)
+df = pd.merge(
+    df,
+    portal_price_m,
+    on=["VariantID", "Grade"],
+    how="left"
+)
 
-# ---- MATCH COLUMN ----
+df = pd.merge(
+    df,
+    odoo_price_m,
+    on=["VariantID", "Grade"],
+    how="left"
+)
+
+# ================= FILL MISSING =================
+
+for col in ["PortalQty", "OdooQty", "PortalPrice", "OdooPrice"]:
+    df[col] = df[col].fillna(0).astype(int)
+
+# ================= MATCH FLAGS =================
+
+df["QtyMatch"]   = df["PortalQty"] == df["OdooQty"]
 df["PriceMatch"] = df["PortalPrice"] == df["OdooPrice"]
 
-# ---- REMARK ----
+# ================= REMARK LOGIC =================
+
 def remark(row):
-    if row["PortalPrice"] == 0 and row["OdooPrice"] > 0:
+    """
+    Determine a human-readable remark describing differences between portal and Odoo product data.
+    Parameters
+    ----------
+    row : Mapping (e.g., dict or pandas.Series)
+        Expected keys:
+          - "PortalQty" (numeric): quantity reported by the portal
+          - "PortalPrice" (numeric): price reported by the portal
+          - "OdooQty" (numeric): quantity reported by Odoo
+          - "OdooPrice" (numeric): price reported by Odoo
+          - "QtyMatch" (bool): whether quantities match between portal and Odoo
+          - "PriceMatch" (bool): whether prices match between portal and Odoo
+    Returns
+    -------
+    str
+        One of:
+          - "Missing in Portal"         : portal has zero quantity and zero price, while Odoo shows a quantity or price (> 0)
+          - "Quantity Missing in Odoo" : Odoo quantity is zero but portal quantity is > 0
+          - "Price Missing in Odoo"    : Odoo price is zero but portal price is > 0
+          - "Qty & Price Mismatch"     : neither quantity nor price match
+          - "Qty Mismatch"             : quantity does not match
+          - "Price Mismatch"           : price does not match
+          - "OK"                       : no detected issues
+    Behavior notes
+    --------------
+    - The function checks conditions in order and returns the first matching remark (priority matters).
+    - The specific line:
+          if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (row["OdooQty"] > 0 or row["OdooPrice"] > 0):
+      detects items that are effectively missing from the portal (both portal quantity and portal price are zero)
+      while Odoo indicates the item exists (either Odoo quantity > 0 or Odoo price > 0). When true, it returns
+      "Missing in Portal".
+    - Assumes numeric comparisons are valid; missing keys will raise KeyError and non-numeric types may raise TypeError.
+    """
+    if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (
+        row["OdooQty"] > 0 or row["OdooPrice"] > 0
+    ):
         return "Missing in Portal"
-    if row["PortalPrice"] > 0 and row["OdooPrice"] == 0:
-        return "Missing in Odoo"
-    if row["PortalPrice"] != row["OdooPrice"]:
+
+    if row["OdooQty"] == 0 and row["PortalQty"] > 0:
+        return "Quantity Missing in Odoo"
+
+    if row["OdooPrice"] == 0 and row["PortalPrice"] > 0:
+        return "Price Missing in Odoo"
+    
+    if not row["QtyMatch"] and not row["PriceMatch"]:
+        return "Qty & Price Mismatch"
+
+    if not row["QtyMatch"]:
+        return "Qty Mismatch"
+
+    if not row["PriceMatch"]:
         return "Price Mismatch"
+
     return "OK"
 
 df["Remark"] = df.apply(remark, axis=1)
 
-# ---- FINAL OUTPUT ----
+# ================= FINAL OUTPUT =================
+
 final = df[[
     "VariantID",
     "Variant Name",
     "Grade",
+    "PortalQty",
+    "OdooQty",
     "PortalPrice",
     "OdooPrice",
+    "QtyMatch",
     "PriceMatch",
     "Remark"
 ]]
 
 final.to_csv("Mapped_Result.csv", index=False)
-print("DONE — Mapped_Result.csv generated")
+
+print("DONE — Qty & Price mapping completed")

@@ -22,7 +22,7 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
 
         time.sleep(random.uniform(2, 4))
         
-        search_query = f"{variant_name} amazon {geo_keyword}"
+        search_query = f"{variant_name} amazon.ae {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
         
         # DuckDuckGo's search box has id="searchbox_input"
