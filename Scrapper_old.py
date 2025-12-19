@@ -18,7 +18,7 @@ from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ---------- CONFIG ----------
-EXCEL_FILE = "Remaining_Products.xlsx"
+EXCEL_FILE = "for Data Scrapping.xlsx"
 SHEET_NAME = "Sheet1"
 CHROME_DRIVER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\chromedriver.exe"
 # WAIT_TIME = 10

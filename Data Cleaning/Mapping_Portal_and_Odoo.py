@@ -2,11 +2,11 @@ import pandas as pd
 
 # ================= LOAD FILES =================
 
-portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Stock_Report_2025-12-16.xlsx")
-odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\odoo Stock 16-12-25.xlsx")
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Stock_Report_2025-12-19 1.xlsx")
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Stock data 19-12-25 1.xlsx")
 
-portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\Buy_Price_Portal.xlsx")
-odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 15-12-25 1.xlsx")
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Buy_Price 19-12-25 1.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 19-12-25 1.xlsx")
 
 # ================= FIX COLUMN NAMES =================
 
@@ -81,6 +81,10 @@ df = pd.merge(
 for col in ["PortalQty", "OdooQty", "PortalPrice", "OdooPrice"]:
     df[col] = df[col].fillna(0).astype(int)
 
+# ================= FILTER: KEEP ONLY ROWS WHERE BOTH PORTAL AND ODOO QTY > 0 =================
+
+df = df[(df["PortalQty"] > 0) & (df["OdooQty"] > 0)]
+
 # ================= MATCH FLAGS =================
 
 df["QtyMatch"]   = df["PortalQty"] == df["OdooQty"]
@@ -130,8 +134,8 @@ def remark(row):
     if row["OdooQty"] == 0 and row["PortalQty"] > 0:
         return "Quantity Missing in Odoo"
 
-    if row["OdooPrice"] == 0 and row["PortalPrice"] > 0:
-        return "Price Missing in Odoo"
+    if row["OdooPrice"] == 0 and row["PortalPrice"] > 0 and row["PortalQty"] != row["OdooQty"]:
+        return "Price Missing in Odoo and Qty Mismatch"
     
     if not row["QtyMatch"] and not row["PriceMatch"]:
         return "Qty & Price Mismatch"

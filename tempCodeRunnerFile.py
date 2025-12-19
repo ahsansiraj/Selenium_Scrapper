@@ -1,0 +1,1 @@
+extract_brand_and_model
