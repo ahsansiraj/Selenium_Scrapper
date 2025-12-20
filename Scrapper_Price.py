@@ -15,8 +15,8 @@ from search_engines import search_duckduckgo_and_get_amazon_url
 from search_engines import search_google_and_get_amazon_url
 
 # ---------- CONFIG ----------
-EXCEL_FILE = "for Data Scrapping.xlsx"  # UPDATE THIS PATH
-SHEET_NAME = "Sheet3"                   # UPDATE THIS SHEET NAME
+EXCEL_FILE = "relation_data.xlsx"  # UPDATE THIS PATH
+SHEET_NAME = "relation_data"                   # UPDATE THIS SHEET NAME
 OUTPUT_CSV = "Price_Results.csv"
 OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
@@ -328,92 +328,91 @@ def calculate_match_score(variant, product_title):
     
     return base_score + keyword_bonus + capacity_bonus + brand_score + model_score + penalty + color_bonus
 
-# ---------- PRICE EXTRACTION ----------
 def extract_price(browser):
     """
-    Extract price with primary and fallback selectors
+    Extract price from the product page.
+    Amazon stores price in multiple spans:
+    - a-price-symbol: "AED"
+    - a-price-whole: "2,611"
+    - a-price-fraction: "45"
+    
+    We combine them to get: "AED 2,611.45"
     """
-    # Primary selector (from your original code)
     try:
-        price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price. aok-align-center.reinventPricePriceToPayMargin")
+        price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price.aok-align-center.reinventPricePriceToPayMargin")
         
+        # Extract currency symbol
         try:
-            currency = price_container.find_element(By.CSS_SELECTOR, ". a-price-symbol").text
+            currency = price_container.find_element(By.CSS_SELECTOR, ".a-price-symbol").text
         except:
             currency = "AED"
         
+        # Extract whole number part (may contain comma like "2,611")
         try:
-            whole = price_container.find_element(By.CSS_SELECTOR, ". a-price-whole").text
+            whole = price_container.find_element(By.CSS_SELECTOR, ".a-price-whole").text
+            # Remove any whitespace but keep the comma and number
             whole = whole.replace('\xa0', '').strip()
         except:
             whole = "0"
         
-        try: 
+        # Extract fractional part (the cents)
+        try:
             fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
         except:
             fraction = "00"
         
-        price = f"{currency} {whole}. {fraction}"
-        print(f"      ✓ Found price (primary): {price}")
+        # Combine into final price format: "AED 2,611.45"
+        price = f"{currency} {whole}.{fraction}"
+        print(f"      ✓ Found price: {price}")
         return price
         
     except Exception as e:
-        print(f"      ⚠️ Primary price selector failed, trying fallbacks...")
+        print(f"      ✗ Price not found: {e}")
+        return "Currently Unavailable" if e else "Not Found"
+
+# ---------- PRICE EXTRACTION ----------
+
+def extract_price(browser):
+    """
+    Extract price from the product page.
+    Amazon stores price in multiple spans:
+    - a-price-symbol: "AED"
+    - a-price-whole: "2,611"
+    - a-price-fraction: "45"
     
-    # Fallback selectors
-    fallback_selectors = [
-        # Fallback 1: Any a-price span
-        "span.a-price span.a-offscreen",
-        
-        # Fallback 2: Price block
-        "#priceblock_ourprice",
-        "#priceblock_dealprice",
-        
-        # Fallback 3: CorePrice
-        ". a-price[data-a-color='price'] span. a-offscreen",
-        
-        # Fallback 4: Buy box price
-        "#corePrice_feature_div span.a-price span.a-offscreen",
-        
-        # Fallback 5: Any price with AED
-        "span.a-price",
-    ]
-    
-    for selector in fallback_selectors:
-        try:
-            price_elem = browser.find_element(By.CSS_SELECTOR, selector)
-            price_text = price_elem.text. strip()
-            
-            if price_text and ("AED" in price_text or "aed" in price_text. lower()):
-                print(f"      ✓ Found price (fallback {selector}): {price_text}")
-                return price_text
-                
-        except: 
-            continue
-    
-    # Check for "Currently Unavailable"
+    We combine them to get: "AED 2,611.45"
+    """
     try:
-        unavailable_indicators = [
-            "#availability span",
-            ". a-color-price",
-            ". a-color-state"
-        ]
+        price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price.aok-align-center.reinventPricePriceToPayMargin")
         
-        for selector in unavailable_indicators:
-            try:
-                elem = browser.find_element(By.CSS_SELECTOR, selector)
-                text = elem.text.lower()
-                if "unavailable" in text or "out of stock" in text:
-                    print(f"      ⚠️ Product is currently unavailable")
-                    return "Currently Unavailable"
-            except:
-                continue
-                
-    except:
-        pass
-    
-    print(f"      ✗ Price not found")
-    return "Not Found"
+        # Extract currency symbol
+        try:
+            currency = price_container.find_element(By.CSS_SELECTOR, ".a-price-symbol").text
+        except:
+            currency = "AED"
+        
+        # Extract whole number part (may contain comma like "2,611")
+        try:
+            whole = price_container.find_element(By.CSS_SELECTOR, ".a-price-whole").text
+            # Remove any whitespace but keep the comma and number
+            whole = whole.replace('\xa0', '').strip()
+        except:
+            whole = "0"
+        
+        # Extract fractional part (the cents)
+        try:
+            fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
+        except:
+            fraction = "00"
+        
+        # Combine into final price format: "AED 2,611.45"
+        price = f"{currency} {whole}.{fraction}"
+        print(f"      ✓ Found price: {price}")
+        return price
+        
+    except Exception as e:
+        print(f"      ✗ Price not found: {e}")
+        return "Currently Unavailable" if e else "Not Found"
 
 def extract_product_name(browser):
     """Extract product name"""
@@ -669,10 +668,10 @@ def unified_search_and_scrape():
         search_count += 1
         
         try:
-            variant_id = str(row['variant_id']).strip()
-            variant_name = str(row['variant_name']).strip()
-            super_variant_name = str(row['super_variant_name']).strip() if 'super_variant_name' in row else ""
-            model_name = str(row['model_name']).strip() if 'model_name' in row else ""
+            variant_id = str(row['Variant ID']).strip()
+            variant_name = str(row['Variant Name']).strip()
+            super_variant_name = str(row['Super Variant Name']).strip() if 'Super Variant Name' in row else ""
+            model_name = str(row['Model Name']).strip() if 'Model Name' in row else ""
             
             if not variant_id:
                 continue
