@@ -10,6 +10,187 @@ from selenium.webdriver.common.keys import Keys
 # "Dubai" will make Google prioritize amazon.ae results
 GEO_KEYWORD = "Dubai"
 
+def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYWORD):
+    """
+    Search Google for Amazon product URLs with enhanced anti-detection measures.
+    
+    This function implements several strategies to avoid Google's bot detection:
+    - Realistic typing speed (humans don't type instantly)
+    - Random delays between actions
+    - Multiple CSS selectors as fallbacks
+    - Better error handling and debugging
+    
+    Args:
+        Variant_name: The product name to search for
+        browser: Selenium webdriver instance
+        geo_keyword: Location keyword to append (default: "Dubai")
+    
+    Returns:
+        tuple: (product_url, site_name) if found, or (None, None) if not found
+    """
+    try:
+        # Step 1: Navigate to Google's homepage first to establish a session
+        print("   🔍 Navigating to Google...")
+        browser.get("https://www.google.com")
+        time.sleep(random.uniform(2, 4))  # Random delay to seem more human
+        
+        # Check if we got blocked by looking for consent or CAPTCHA pages
+        page_source = browser.page_source.lower()
+        if "captcha" in page_source or "unusual traffic" in page_source:
+            print("   ⚠️  Google detected automation. You might need to:")
+            print("      1. Wait a few minutes before trying again")
+            print("      2. Use a VPN or change your IP address")
+            print("      3. Manually complete CAPTCHA if browser window shows one")
+            return None, None
+        
+        # Step 2: Create the geo-targeted search query
+        search_query = f"{Variant_name} amazon {geo_keyword}"
+        print(f"   🌍 Search query: '{search_query}'")
+        
+        # Step 3: Find Google's search box using multiple selectors
+        search_box = None
+        selectors_to_try = [
+            (By.NAME, "q"),
+            (By.CSS_SELECTOR, "textarea[name='q']"),
+            (By.CSS_SELECTOR, "input[name='q']"),
+            (By.XPATH, "//textarea[@name='q']"),
+            (By.XPATH, "//input[@name='q']")
+        ]
+        
+
+        for selector_type, selector_value in selectors_to_try:
+            try:
+                search_box = WebDriverWait(browser, 5).until(
+                    EC.presence_of_element_located((selector_type, selector_value))
+                )
+                if search_box:
+                    print(f"   ✓ Found search box using {selector_type}: {selector_value}")
+                    break
+            except:
+                continue
+        
+        if not search_box:
+            print("   ❌ Could not find Google search box. Google might be blocking access.")
+            print("   💡 Try opening Google manually in the browser to check for CAPTCHA")
+            return None, None
+        
+        # Step 4: Type the search query character by character (like a human)
+        search_box.clear()
+        time.sleep(random.uniform(2, 4))
+        for char in search_query:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        
+        time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
+        search_box.send_keys(Keys.ENTER)
+        
+
+        # Step 5: Wait for search results to load with multiple strategies
+        print("   ⏳ Waiting for search results...")
+        time.sleep(random.uniform(2,6))  # Give Google time to fully render
+
+        # NEW: Simple human-like scrolling
+        print("   📜 Scanning results...")
+        for _ in range(random.randint(2, 4)):  # 2-4 scroll actions
+            scroll_distance = random. randint(300, 600)
+            browser.execute_script(f"window.scrollBy({{top: {scroll_distance}, behavior: 'smooth'}});")
+            time.sleep(random.uniform(0.6, 1.2))
+
+        # Scroll back to top
+        browser.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
+        time.sleep(random.uniform(0.8, 1.5))
+
+        
+        # Try multiple selectors for search results
+        search_results = []
+        result_selectors = [
+            "div.g a",
+            "div[data-sokoban-container] a",
+            "div#search a",
+            "div#rso a"
+        ]
+        
+        for selector in result_selectors:
+            try:
+                search_results = browser.find_elements(By.CSS_SELECTOR, selector)
+                if len(search_results) > 5:  # Need reasonable number of results
+                    print(f"   ✓ Found results using selector: {selector}")
+                    break
+            except:
+                continue
+        
+        if not search_results:
+            print("   ❌ No search results found. Possible reasons:")
+            print("      • Google is showing a CAPTCHA")
+            print("      • Google blocked the automated request")
+            print("      • Network connectivity issues")
+            print("   💡 Current page title:", browser.title)
+            
+            # Save screenshot for debugging
+            try:
+                screenshot_path = "google_error_debug.png"
+                browser.save_screenshot(screenshot_path)
+                print(f"   📸 Saved debug screenshot to: {screenshot_path}")
+            except:
+                pass
+            
+            return None, None
+        
+        # Step 6: Extract all clickable URLs
+        all_urls = []
+        for result in search_results:
+            try:
+                url = result.get_attribute("href")
+                if url and url.startswith("http") and "google.com" not in url:
+                    all_urls.append(url)
+            except:
+                continue
+        
+        print(f"   📊 Extracted {len(all_urls)} URLs from search results")
+        
+        # Debug: Show first few URLs found
+        if all_urls:
+            print(f"   🔗 Sample URLs found:")
+            for url in all_urls[:3]:
+                domain = url.split('/')[2] if len(url.split('/')) > 2 else url
+                print(f"      • {domain}")
+        
+        # Step 7: Filter and prioritize Amazon URLs
+        # Priority 1: amazon.ae
+        for url in all_urls:
+            if "amazon.ae" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.ae URL (boosted by '{geo_keyword}')")
+                return url, "amazon.ae"
+        
+        # # Priority 2: amazon.in
+        # for url in all_urls:
+        #     if "amazon.in" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.in URL")
+        #         return url, "amazon.in"
+        
+        # # Priority 3: amazon.com
+        # for url in all_urls:
+        #     if "amazon.com" in url and "/dp/" in url:
+        #         print(f"   ✅ Found amazon.com URL")
+        #         return url, "amazon.com"
+        
+        print("   ⚠️  No Amazon product URLs found in results")
+        print("   💡 This might mean the product isn't available on Amazon")
+        return None, None
+        
+    except Exception as e:
+        print(f"   ❌ Error during Google search: {str(e)}")
+        print(f"   📍 Error type: {type(e).__name__}")
+        
+        # Try to provide helpful context
+        try:
+            print(f"   🌐 Current URL: {browser.current_url}")
+            print(f"   📄 Page title: {browser.title}")
+        except:
+            pass
+        
+        return None, None
+
 
 def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):
     """

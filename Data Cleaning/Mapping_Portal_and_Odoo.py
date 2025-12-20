@@ -2,11 +2,11 @@ import pandas as pd
 
 # ================= LOAD FILES =================
 
-portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Stock_Report_2025-12-19 1.xlsx")
-odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Stock data 19-12-25 1.xlsx")
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Stock_Report_2025-12-20.xlsx")
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Stock 2025-12-20.xlsx")
 
-portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Buy_Price 19-12-25 1.xlsx")
-odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 19-12-25 1.xlsx")
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\Portal_Buy_Price_Custom_2025-12-20.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 2025-12-20.xlsx")
 
 # ================= FIX COLUMN NAMES =================
 
@@ -126,6 +126,7 @@ def remark(row):
       "Missing in Portal".
     - Assumes numeric comparisons are valid; missing keys will raise KeyError and non-numeric types may raise TypeError.
     """
+    
     if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (
         row["OdooQty"] > 0 or row["OdooPrice"] > 0
     ):
@@ -165,6 +166,6 @@ final = df[[
     "Remark"
 ]]
 
-final.to_csv("Mapped_Result.csv", index=False)
+final.to_csv(r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_ResultsMapped_Result.csv", index=False)
 
 print("DONE — Qty & Price mapping completed")

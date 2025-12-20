@@ -12,15 +12,17 @@ import undetected_chromedriver as uc
 from rapidfuzz import fuzz
 
 from search_engines import search_duckduckgo_and_get_amazon_url
+from search_engines import search_google_and_get_amazon_url
 
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"  # UPDATE THIS PATH
 SHEET_NAME = "Sheet3"                   # UPDATE THIS SHEET NAME
-OUTPUT_CSV = "Unified_Price_Results.csv"
-OUTPUT_EXCEL = "Unified_Price_Results.xlsx"
+OUTPUT_CSV = "Price_Results.csv"
+OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
-END_ROW = 50       # UPDATE THIS
-
+END_ROW = 3000       # UPDATE THIS
+FOLDER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results"
+            
 MATCH_THRESHOLD=80
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
@@ -160,20 +162,26 @@ def extract_storage(title):
     return match.group(0).lower() if match else None
 
 def extract_brand_and_model(variant_name):
-    """Extract brand and model"""
+    """Extract brand and model from variant name"""
     words = variant_name.lower().split()
     brand = None
     model = None
     
-    for word in words[:5]: 
-        if word in BRANDS: 
+    # Find brand in first 3 words
+    for word in words[:5]:
+        if word in BRANDS:
             brand = word
             break
     
-    for word in words: 
+    # Find model number
+    for i, word in enumerate(words):
         if len(word) >= 4 and any(char.isdigit() for char in word) and any(char.isalpha() for char in word):
-            model = word
-            break
+            if i > 0 and words[i-1] in MODEL_KEYWORDS:
+                model = word
+                break
+            elif not any(char.isspace() for char in word):
+                model = word
+                break
     
     return brand, model
 
@@ -189,23 +197,99 @@ def extract_colors(text):
     return colors_found
 
 def calculate_color_match_score(variant, product_title):
-    
-    """Calculate color matching score"""
+    """Calculate color matching score with enhanced precision"""
     variant_colors = extract_colors(variant)
     title_colors = extract_colors(product_title)
     
-    if not variant_colors: 
+    if not variant_colors:
         return 0
     
     if not title_colors:
-        return -15
+        return -15  # Penalty if product title has no color when variant specifies one
     
     score = 0
+    
+    # Check for exact matches with position bonus
+    variant_words = variant.lower().split()
+    title_words = product_title.lower().split()
+    
     for color in variant_colors:
+        # Strong bonus for exact match
         if color in title_colors:
             score += 25
+            
+            # Additional bonus if color appears in same relative position
+            try:
+                variant_color_pos = next(i for i, word in enumerate(variant_words) if color in word)
+                title_color_pos = next(i for i, word in enumerate(title_words) if color in word)
+                
+                # More bonus if color position is similar
+                position_diff = abs(variant_color_pos/len(variant_words) - title_color_pos/len(title_words))
+                if position_diff < 0.3:  # If color appears in similar relative position
+                    score += 10
+            except:
+                pass
+                
+        # Check for color synonyms with lower score
+        else:
+            for main_color, variations in COLOR_DICTIONARY.items():
+                if color in variations and any(var in title_colors for var in variations):
+                    score += 15
+                    break
     
+    # Penalty for mismatched colors
+    title_only_colors = title_colors - variant_colors
+    if title_only_colors and not any(c in str(title_only_colors) for c in variant_colors):
+        score -= 15
+        
     return score
+    
+    # Check for color synonyms and variations
+    color_synonyms = {
+        # Black variations
+        'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
+        'space black': {'space gray', 'cosmic black', 'stellar black'},
+        'midnight': {'night', 'noir', 'phantom black'},
+        
+        # White variations  
+        'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
+        'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
+        
+        # Blue variations
+        'blue': {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
+        'sky blue': {'baby blue', 'azure', 'ice blue'},
+        'midnight blue': {'navy', 'deep blue', 'royal blue'},
+        
+        # Red variations
+        'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red'},
+        'product red': {'red', '(red)'},
+        
+        # Green variations
+        'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
+        'alpine green': {'forest green', 'hunter green', 'army green'},
+        
+        # Gold variations
+        'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
+        'rose gold': {'pink gold', 'blush gold'},
+        
+        # Purple variations
+        'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
+        'deep purple': {'royal purple', 'eggplant', 'plum'},
+        
+        # Gray variations
+        'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
+        'space gray': {'space grey', 'metallic gray', 'titanium gray'},
+    }
+    
+    # Check for color synonyms
+    for variant_color in variant_colors:
+        for title_color in title_colors:
+            # Check if colors are synonyms
+            if (variant_color in color_synonyms and title_color in color_synonyms[variant_color]) or \
+               (title_color in color_synonyms and variant_color in color_synonyms[title_color]):
+                return 15  # Moderate bonus for synonym match
+    
+    return -10  # Penalty for color mismatch
 
 def calculate_match_score(variant, product_title):
     
@@ -460,18 +544,13 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
-        # Type search term
-        for char in search_term:
-            search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.1))
-        
-        time.sleep(random.uniform(0.5, 1.0))
-        
+        search_box.send_keys(search_term)
+
         # Click search button
         search_button = browser.find_element(By.ID, "nav-search-submit-button")
         search_button. click()
         
-        time. sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
@@ -487,10 +566,10 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         best_score = 0
         best_title = ""
         
-        for result in search_results[: 20]: 
+        for result in search_results[:20]: 
             try:
-                title_elem = result.find_element(By.CSS_SELECTOR, "h2.a-size-mini span")
-                title_text = title_elem.text. strip()
+                title_elem = result.find_element(By.CSS_SELECTOR, "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span")
+                title_text = title_elem.text.strip()
                 
                 score = calculate_match_score(search_term, title_text)
                 
@@ -523,178 +602,6 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         print(f"   ❌ Error searching Amazon.ae: {str(e)}")
         return None
 
-def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):
-    """
-    Search Google for Amazon. ae URLs (from your original code)
-    """
-    try:
-        print("   🔍 Navigating to Google...")
-        browser.get("https://www.google.com")
-        time.sleep(random.uniform(2, 4))
-        
-        page_source = browser.page_source. lower()
-        if "captcha" in page_source or "unusual traffic" in page_source:
-            print("   ⚠️ Google detected automation")
-            return None, None
-        
-        search_query = f"{variant_name} amazon.ae {geo_keyword}"
-        print(f"   🌍 Search query: '{search_query}'")
-        
-        search_box = None
-        selectors_to_try = [
-            (By.NAME, "q"),
-            (By.CSS_SELECTOR, "textarea[name='q']"),
-            (By.CSS_SELECTOR, "input[name='q']"),
-            (By. XPATH, "//textarea[@name='q']"),
-            (By.XPATH, "//input[@name='q']")
-        ]
-        
-        for selector_type, selector_value in selectors_to_try:
-            try:
-                search_box = WebDriverWait(browser, 5).until(
-                    EC. presence_of_element_located((selector_type, selector_value))
-                )
-                if search_box:
-                    print(f"   ✓ Found search box")
-                    break
-            except: 
-                continue
-        
-        if not search_box:
-            print("   ❌ Could not find Google search box")
-            return None, None
-        
-        search_box.clear()
-        for char in search_query:
-            search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))
-        
-        time.sleep(random.uniform(0.5, 1.5))
-        search_box.send_keys(Keys. ENTER)
-        
-        time. sleep(random.uniform(2, 6))
-        
-        # Scroll
-        for _ in range(random.randint(2, 4)):
-            scroll_distance = random.randint(300, 600)
-            browser.execute_script(f"window.scrollBy({{top: {scroll_distance}, behavior: 'smooth'}});")
-            time.sleep(random. uniform(0.6, 1.2))
-        
-        browser.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
-        time.sleep(random.uniform(0.8, 1.5))
-        
-        search_results = []
-        result_selectors = [
-            "div.g a",
-            "div[data-sokoban-container] a",
-            "div#search a",
-            "div#rso a"
-        ]
-        
-        for selector in result_selectors:
-            try:
-                search_results = browser.find_elements(By. CSS_SELECTOR, selector)
-                if len(search_results) > 5:
-                    break
-            except:
-                continue
-        
-        if not search_results:
-            print("   ❌ No search results found")
-            return None, None
-        
-        all_urls = []
-        for result in search_results:
-            try: 
-                url = result.get_attribute("href")
-                if url and url.startswith("http") and "google. com" not in url:
-                    all_urls.append(url)
-            except:
-                continue
-        
-        print(f"   📊 Extracted {len(all_urls)} URLs")
-        
-        for url in all_urls:
-            if "amazon.ae" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.ae URL")
-                return url, "amazon.ae"
-        
-        print("   ⚠️ No Amazon.ae URLs found")
-        return None, None
-        
-    except Exception as e:
-        print(f"   ❌ Error during Google search: {str(e)}")
-        return None, None
-
-def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):
-    """
-    Search DuckDuckGo instead of Google - much more bot-friendly!
-    DuckDuckGo doesn't have aggressive anti-bot measures like Google does.
-    """
-    try:
-        print("   🔍 Searching on DuckDuckGo...")
-        browser.get("https://duckduckgo.com")
-
-        time.sleep(random.uniform(2, 4))
-        
-        search_query = f"{variant_name} amazon.ae {geo_keyword}"
-        print(f"   🌍 Search query: '{search_query}'")
-        
-        # DuckDuckGo's search box has id="searchbox_input"
-        search_box = WebDriverWait(browser, 10).until(
-            EC.presence_of_element_located((By.ID, "searchbox_input"))
-        )
-        search_box.clear()
-        time.sleep(random.uniform(2, 4))
-        for char in search_query:
-            search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
-        
-        time.sleep(random.uniform(0.5, 1.0))
-        search_box.send_keys(Keys.ENTER)
-        
-        # Wait for results
-        time.sleep(3)
-        WebDriverWait(browser, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
-        )
-        
-        # Extract URLs from DuckDuckGo results
-        search_results = browser.find_elements(By.CSS_SELECTOR, "article a")
-        
-        all_urls = []
-        for result in search_results:
-            try:
-                url = result.get_attribute("href")
-                if url and "amazon" in url and url.startswith("http"):
-                    all_urls.append(url)
-            except:
-                continue
-        
-        print(f"   📊 Found {len(all_urls)} Amazon URLs")
-        
-        # Same priority logic
-        for url in all_urls:
-            if "amazon.ae" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.ae URL")
-                return url, "amazon.ae"
-        
-        # for url in all_urls:
-        #     if "amazon.in" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.in URL")
-        #         return url, "amazon.in"
-        
-        # for url in all_urls:
-        #     if "amazon.com" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.com URL")
-        #         return url, "amazon.com"
-        
-        print("   ⚠️  No Amazon URLs found")
-        return None, None
-        
-    except Exception as e:
-        print(f"   ❌ Error: {str(e)}")
-        return None, None
 
 # ---------- MAIN ORCHESTRATION ----------
 def unified_search_and_scrape():
@@ -898,9 +805,10 @@ def unified_search_and_scrape():
                 "product_name": product_name,
                 "product_url":  product_url if product_url else "Not Found"
             }
-            
+
             result_df = pd.DataFrame([row_data], columns=columns)
-            result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
+            full_path = os.path.join(FOLDER_PATH, OUTPUT_CSV)
+            result_df.to_csv(full_path, mode='a', header=not file_exists, index=False)
             file_exists = True
             
             product_time = time.time() - product_start_time
@@ -928,7 +836,8 @@ def unified_search_and_scrape():
                     "product_url": "Error"
                 }
                 result_df = pd.DataFrame([error_row], columns=columns)
-                result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
+                full_path = os.path.join(FOLDER_PATH, OUTPUT_CSV)
+                result_df.to_csv(full_path, mode='a', header=not file_exists, index=False)
                 file_exists = True
             except: 
                 pass
