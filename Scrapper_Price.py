@@ -328,50 +328,7 @@ def calculate_match_score(variant, product_title):
     
     return base_score + keyword_bonus + capacity_bonus + brand_score + model_score + penalty + color_bonus
 
-def extract_price(browser):
-    """
-    Extract price from the product page.
-    Amazon stores price in multiple spans:
-    - a-price-symbol: "AED"
-    - a-price-whole: "2,611"
-    - a-price-fraction: "45"
-    
-    We combine them to get: "AED 2,611.45"
-    """
-    try:
-        price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price.aok-align-center.reinventPricePriceToPayMargin")
-        
-        # Extract currency symbol
-        try:
-            currency = price_container.find_element(By.CSS_SELECTOR, ".a-price-symbol").text
-        except:
-            currency = "AED"
-        
-        # Extract whole number part (may contain comma like "2,611")
-        try:
-            whole = price_container.find_element(By.CSS_SELECTOR, ".a-price-whole").text
-            # Remove any whitespace but keep the comma and number
-            whole = whole.replace('\xa0', '').strip()
-        except:
-            whole = "0"
-        
-        # Extract fractional part (the cents)
-        try:
-            fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
-        except:
-            fraction = "00"
-        
-        # Combine into final price format: "AED 2,611.45"
-        price = f"{currency} {whole}.{fraction}"
-        print(f"      ✓ Found price: {price}")
-        return price
-        
-    except Exception as e:
-        print(f"      ✗ Price not found: {e}")
-        return "Currently Unavailable" if e else "Not Found"
-
 # ---------- PRICE EXTRACTION ----------
-
 def extract_price(browser):
     """
     Extract price from the product page.
