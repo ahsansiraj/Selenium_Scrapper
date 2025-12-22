@@ -17,20 +17,20 @@ from search_engines import search_google_and_get_amazon_url
 # ---------- CONFIG ----------
 EXCEL_FILE = "relation_data.xlsx"  # UPDATE THIS PATH
 SHEET_NAME = "relation_data"                   # UPDATE THIS SHEET NAME
-OUTPUT_CSV = "Price_Results.csv"
+OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
 OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
 END_ROW = 3000       # UPDATE THIS
-FOLDER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results"
             
 MATCH_THRESHOLD=80
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
-# Matching configuration
+# ---------- MATCHING CONFIGURATION ----------
 STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
               'on', 'by', 'as', 'at', 'from', 'version', 'international', 'gb', 
-              'single', 'sim', 'unlocked', 'renewed', 'refurbished' ,'+'}
+              'single', 'sim', 'unlocked', 'renewed', 'refurbished', '+', 'esim', 
+              'physical', 'dual'}
 
 PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker', 
                  'film', 'adapter', 'charger', 'cable', 'stand', 'holder', 
@@ -38,7 +38,8 @@ PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker',
                  'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
 
 BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
-          'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus'}
+          'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
+          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google'}
 
 MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref'}
 
@@ -60,7 +61,7 @@ COLOR_DICTIONARY = {
     
     # Red family
     'red', 'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red',
-    'product red', 'coral red', 'fiery red', 'burgundy',
+    'product red', 'coral red', 'fiery red', 'burgundy', '(product)red',
     
     # Green family
     'green', 'forest green', 'emerald green', 'olive green', 'mint green',
@@ -98,68 +99,131 @@ COLOR_DICTIONARY = {
     'starlight', 'sunlight', 'moonlight', 'aurora', 'northern lights'
 }
 
+# Color synonyms for better matching
+COLOR_SYNONYMS = {
+    'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
+    'space black': {'space gray', 'cosmic black', 'stellar black'},
+    'midnight':  {'night', 'noir', 'phantom black'},
+    'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
+    'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
+    'blue':  {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
+    'sky blue': {'baby blue', 'azure', 'ice blue'},
+    'midnight blue': {'navy', 'deep blue', 'royal blue'},
+    'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red', '(product)red', 'product red'},
+    'product red':  {'red', '(red)', 'productred'},
+    'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
+    'alpine green': {'forest green', 'hunter green', 'army green'},
+    'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
+    'rose gold': {'pink gold', 'blush gold'},
+    'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
+    'deep purple': {'royal purple', 'eggplant', 'plum'},
+    'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
+    'space gray': {'space grey', 'metallic gray', 'titanium gray'},
+}
+
 # ---------- BROWSER SETUP ----------
 def create_browser_with_anti_detection():
-    """Create undetected Chrome browser"""
+    """
+    Creates an undetected Chrome browser with anti-detection measures enabled.
+    This makes our scraper look like a real human browsing, not a bot. 
+    """
+    
+    # Create options for undetected chrome
     options = uc.ChromeOptions()
+    
+    # Window settings
     options.add_argument("--start-maximized")
     options.add_argument("--window-size=1920,1080")
     options.add_argument(f"user-agent={USER_AGENT}")
+    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
-    options.add_argument("--max_old_space_size=4096")
+    
+    # Memory limits
+    options.add_argument("--max_old_space_size=4096")  # Limit memory to 4GB
     options.add_argument("--js-flags=--max-old-space-size=4096")
+    
+    # Random user agent
+    # user_agent = random.choice(USER_AGENTS)
+    # options.add_argument(f"user-agent={user_agent_index}")
+    
+    # Additional privacy/stealth settings
     options.add_argument("--disable-popup-blocking")
     options.add_argument("--disable-notifications")
+    options.add_argument("--disable-extensions")
     
+    
+    # Preferences to appear more human-like
     prefs = {
         "credentials_enable_service": False,
         "profile.password_manager_enabled": False,
         "profile.default_content_setting_values.notifications": 2,
-        "profile.managed_default_content_settings.images": 1,
+        "profile.managed_default_content_settings.images": 1,  # Load images
     }
     options.add_experimental_option("prefs", prefs)
     
     try:
-        browser = uc.Chrome(options=options, use_subprocess=True, version_main=142)
+        # Create undetected Chrome browser
+        # version_main parameter should match your installed Chrome version
+        # If not specified, it will try to auto-detect
+        browser = uc.Chrome(
+            options=options,
+            use_subprocess=True,  # More stable
+            version_main=142,  # Uncomment and set your Chrome version if needed
+        )
         
+        
+        # Additional stealth scripts (optional, but helpful)
         browser.execute_cdp_cmd('Network.setUserAgentOverride', {
             "userAgent": USER_AGENT
         })
         
+        # Set navigator properties to appear more human
         browser.execute_script("""
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
+            
             Object.defineProperty(navigator, 'plugins', {
                 get: () => [1, 2, 3, 4, 5]
             });
+            
             Object.defineProperty(navigator, 'languages', {
                 get: () => ['en-US', 'en']
             });
-            window.chrome = { runtime: {} };
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
         """)
         
         return browser
         
-    except Exception as e: 
-        print(f"   ❌ Error creating browser:  {e}")
+    except Exception as e:
+        print(f"   ❌ Error creating undetected browser: {e}")
+        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
         raise
 
 # ---------- MATCHING LOGIC ----------
 def preprocess_text(text):
     """Normalize text for matching"""
     text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)
-    text = re.sub(r'\d+gb', '', text)
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = re.sub(r'\s+', ' ', text)      # Normalize spaces
     return ' '.join([word for word in text.split() if word not in STOP_WORDS])
 
 def extract_storage(title):
     """Extract storage capacity"""
     match = re.search(r'(\d+)\s?(gb|tb|mb)', title, re.IGNORECASE)
-    return match.group(0).lower() if match else None
+    return match.group(0).lower().replace(' ', '') if match else None
 
 def extract_brand_and_model(variant_name):
     """Extract brand and model from variant name"""
@@ -167,18 +231,21 @@ def extract_brand_and_model(variant_name):
     brand = None
     model = None
     
-    # Find brand in first 3 words
+    # Find brand in first 5 words
     for word in words[:5]:
         if word in BRANDS:
             brand = word
             break
     
-    # Find model number
+    # Find model number (alphanumeric pattern)
     for i, word in enumerate(words):
+        # Model must be at least 4 chars and contain both letters and numbers
         if len(word) >= 4 and any(char.isdigit() for char in word) and any(char.isalpha() for char in word):
+            # Check if preceded by model keyword
             if i > 0 and words[i-1] in MODEL_KEYWORDS:
                 model = word
                 break
+            # Or just a valid alphanumeric pattern
             elif not any(char.isspace() for char in word):
                 model = word
                 break
@@ -186,148 +253,167 @@ def extract_brand_and_model(variant_name):
     return brand, model
 
 def extract_colors(text):
-    """Extract color names"""
+    """Extract color names from text"""
     text_lower = text.lower()
     colors_found = set()
     
+    # Check for exact color matches
     for color in COLOR_DICTIONARY:
-        if color in text_lower: 
+        # Use word boundaries to avoid partial matches
+        if re.search(r'\b' + re.escape(color) + r'\b', text_lower):
             colors_found.add(color)
     
     return colors_found
 
 def calculate_color_match_score(variant, product_title):
-    """Calculate color matching score with enhanced precision"""
+    """
+    Calculate color matching score (0 to 15 points max)
+    """
     variant_colors = extract_colors(variant)
     title_colors = extract_colors(product_title)
     
+    # No color in variant - neutral (0 points)
     if not variant_colors:
         return 0
     
+    # Variant has color but title doesn't - small penalty
     if not title_colors:
-        return -15  # Penalty if product title has no color when variant specifies one
+        return -5
     
     score = 0
+    matched = False
     
-    # Check for exact matches with position bonus
-    variant_words = variant.lower().split()
-    title_words = product_title.lower().split()
-    
-    for color in variant_colors:
-        # Strong bonus for exact match
-        if color in title_colors:
-            score += 25
-            
-            # Additional bonus if color appears in same relative position
-            try:
-                variant_color_pos = next(i for i, word in enumerate(variant_words) if color in word)
-                title_color_pos = next(i for i, word in enumerate(title_words) if color in word)
-                
-                # More bonus if color position is similar
-                position_diff = abs(variant_color_pos/len(variant_words) - title_color_pos/len(title_words))
-                if position_diff < 0.3:  # If color appears in similar relative position
-                    score += 10
-            except:
-                pass
-                
-        # Check for color synonyms with lower score
-        else:
-            for main_color, variations in COLOR_DICTIONARY.items():
-                if color in variations and any(var in title_colors for var in variations):
-                    score += 15
-                    break
-    
-    # Penalty for mismatched colors
-    title_only_colors = title_colors - variant_colors
-    if title_only_colors and not any(c in str(title_only_colors) for c in variant_colors):
-        score -= 15
-        
-    return score
-    
-    # Check for color synonyms and variations
-    color_synonyms = {
-        # Black variations
-        'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
-        'space black': {'space gray', 'cosmic black', 'stellar black'},
-        'midnight': {'night', 'noir', 'phantom black'},
-        
-        # White variations  
-        'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
-        'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
-        
-        # Blue variations
-        'blue': {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
-        'sky blue': {'baby blue', 'azure', 'ice blue'},
-        'midnight blue': {'navy', 'deep blue', 'royal blue'},
-        
-        # Red variations
-        'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red'},
-        'product red': {'red', '(red)'},
-        
-        # Green variations
-        'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
-        'alpine green': {'forest green', 'hunter green', 'army green'},
-        
-        # Gold variations
-        'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
-        'rose gold': {'pink gold', 'blush gold'},
-        
-        # Purple variations
-        'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
-        'deep purple': {'royal purple', 'eggplant', 'plum'},
-        
-        # Gray variations
-        'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
-        'space gray': {'space grey', 'metallic gray', 'titanium gray'},
-    }
+    # Check for exact color matches
+    for variant_color in variant_colors: 
+        if variant_color in title_colors: 
+            score += 10  # Exact match bonus
+            matched = True
+            break
     
     # Check for color synonyms
-    for variant_color in variant_colors:
-        for title_color in title_colors:
-            # Check if colors are synonyms
-            if (variant_color in color_synonyms and title_color in color_synonyms[variant_color]) or \
-               (title_color in color_synonyms and variant_color in color_synonyms[title_color]):
-                return 15  # Moderate bonus for synonym match
+    if not matched:
+        for variant_color in variant_colors: 
+            for title_color in title_colors:
+                # Check direct synonyms
+                if variant_color in COLOR_SYNONYMS: 
+                    if title_color in COLOR_SYNONYMS[variant_color]:
+                        score += 8  # Synonym match bonus
+                        matched = True
+                        break
+                # Check reverse synonyms
+                if title_color in COLOR_SYNONYMS: 
+                    if variant_color in COLOR_SYNONYMS[title_color]:
+                        score += 8  # Synonym match bonus
+                        matched = True
+                        break
+            if matched:
+                break
     
-    return -10  # Penalty for color mismatch
+    # Penalty for color mismatch
+    if not matched:
+        score -= 10
+    
+    return score
 
 def calculate_match_score(variant, product_title):
+    """
+    Enhanced matching algorithm - NORMALIZED to 0-100 scale
     
-    """Enhanced matching algorithm"""
+    Breakdown:
+    - Base fuzzy score: 0-50 points (50% weight)
+    - Storage match: 0-15 points
+    - Brand match: 0-15 points  
+    - Model match: 0-15 points
+    - Color match: -10 to +10 points
+    - Keyword overlap: 0-5 points
+    - Penalties: -20 points max
+    
+    Total possible: ~100 points
+    """
+    
+    # Preprocess texts
     variant_proc = preprocess_text(variant)
     title_proc = preprocess_text(product_title)
     title_lower = product_title.lower()
+    variant_lower = variant.lower()
     
-    base_score = fuzz.token_set_ratio(variant_proc, title_proc)
+    # 1. BASE FUZZY SCORE (0-50 points) - 50% of total weight
+    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 0.5
     
-    variant_words = set(variant_proc.split())
-    title_words = set(title_proc.split())
-    keyword_bonus = len(variant_words & title_words) * 5
-    
+    # 2. STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
     title_cap = extract_storage(product_title)
-    capacity_bonus = 20 if variant_cap and title_cap and variant_cap == title_cap else 0
     
-    brand_score = 0
+    if variant_cap and title_cap: 
+        if variant_cap == title_cap:
+            storage_score = 15  # Perfect match
+        else: 
+            storage_score = -15  # Wrong storage is a big problem
+    elif variant_cap and not title_cap:
+        storage_score = -5  # Variant specifies storage but title doesn't
+    else:
+        storage_score = 0  # No storage specified in variant
+    
+    # 3. BRAND MATCH (0-15 points)
     variant_brand, variant_model = extract_brand_and_model(variant)
+    brand_score = 0
     
-    if variant_brand: 
+    if variant_brand:
         if variant_brand in title_lower:
-            brand_score += 30
-        competing_brands = BRANDS - {variant_brand}
-        if any(brand in title_lower for brand in competing_brands):
-            brand_score -= 40
+            brand_score = 15  # Correct brand
+        else:
+            # Check if a competing brand is present
+            competing_brands = BRANDS - {variant_brand}
+            if any(brand in title_lower for brand in competing_brands):
+                brand_score = -20  # Wrong brand - major penalty
+            else:
+                brand_score = -5  # Brand not found
     
+    # 4. MODEL NUMBER MATCH (0-15 points)
     model_score = 0
-    if variant_model and variant_model in title_lower: 
-        model_score += 50
+    if variant_model:
+        if variant_model in title_lower: 
+            model_score = 15  # Perfect model match
+        else:
+            # Check for partial model match (e.g., "11" matches "iphone 11")
+            if len(variant_model) >= 4: 
+                model_score = -10  # Model mismatch
     
-    color_bonus = calculate_color_match_score(variant, product_title)
+    # 5. COLOR MATCH (-10 to +10 points)
+    color_score = calculate_color_match_score(variant, product_title)
     
-    penalty = -20 if any(word in title_lower for word in PENALTY_WORDS) else 0
+    # 6. KEYWORD OVERLAP BONUS (0-5 points)
+    variant_words = set(variant_proc.split())
+    title_words = set(title_proc.split())
+    common_words = variant_words & title_words
     
-    return base_score + keyword_bonus + capacity_bonus + brand_score + model_score + penalty + color_bonus
-
+    # Only count meaningful words (at least 3 chars)
+    meaningful_common = [w for w in common_words if len(w) >= 3]
+    keyword_bonus = min(len(meaningful_common), 5)  # Max 5 points
+    
+    # 7. ACCESSORY PENALTY (-20 points)
+    penalty = 0
+    if any(word in title_lower for word in PENALTY_WORDS):
+        penalty = -20  # Strong penalty for accessories
+    
+    # 8. REFURBISHED DETECTION (informational, no penalty for now)
+    # You can add logic here if you want to handle refurbished products differently
+    
+    # CALCULATE FINAL SCORE
+    final_score = (
+        base_score +         # 0-50
+        storage_score +      # -15 to +15
+        brand_score +        # -20 to +15
+        model_score +        # -10 to +15
+        color_score +        # -10 to +10
+        keyword_bonus +      # 0-5
+        penalty              # -20 to 0
+    )
+    
+    # Clamp score to 0-100 range
+    final_score = max(0, min(100, final_score))
+    
+    return final_score
 # ---------- PRICE EXTRACTION ----------
 def extract_price(browser):
     """
@@ -410,12 +496,12 @@ def handle_amazon_popup(browser):
             "form[action*='/errors/validateCaptcha'] input[type='submit']",
             
             # By class name
-            "button. a-button-text",
+            "button.a-button-text",
         ]
         
         for selector in button_selectors:
             try:
-                if selector. startswith("//"):
+                if selector.startswith("//"):
                     # XPath selector
                     button = browser.find_element(By.XPATH, selector)
                 else:
@@ -484,7 +570,7 @@ def scrape_price_from_url(product_url, browser):
 
 def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
     """
-    Search directly on Amazon. ae using search box
+    Search directly on Amazon.ae using search box
     """
     try: 
         print(f"   🔍 Searching Amazon.ae for: {search_term}")
@@ -500,17 +586,25 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
+        time.sleep(random.uniform(1, 4))
+        
+        for char in search_term:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        
+        time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
+        
         search_box.send_keys(search_term)
 
         # Click search button
         search_button = browser.find_element(By.ID, "nav-search-submit-button")
-        search_button. click()
+        search_button.click()
         
         time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
-            EC.presence_of_all_elements_located((By. XPATH, "//div[@data-component-type='s-search-result']"))
+            EC.presence_of_all_elements_located((By.XPATH, "//div[@data-component-type='s-search-result']"))
         )
         
         search_results = browser.find_elements(By.XPATH, "//div[@data-component-type='s-search-result']")
@@ -541,7 +635,7 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         
         if best_match_elem and best_score >= MATCH_THRESHOLD: 
             try:
-                link_elem = best_match_elem. find_element(By.TAG_NAME, "a")
+                link_elem = best_match_elem.find_element(By.TAG_NAME, "a")
                 product_url = link_elem.get_attribute("href")
                 
                 print(f"   ✅ Found matching product: {best_title[: 60]}...")
@@ -557,7 +651,6 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
     except Exception as e: 
         print(f"   ❌ Error searching Amazon.ae: {str(e)}")
         return None
-
 
 # ---------- MAIN ORCHESTRATION ----------
 def unified_search_and_scrape():
@@ -582,22 +675,26 @@ def unified_search_and_scrape():
     # Check for existing progress
     if os.path.exists(OUTPUT_CSV) and os.path.getsize(OUTPUT_CSV) > 0:
         try:
-            processed_df = pd.read_csv(OUTPUT_CSV)
-            processed_df. columns = [col.strip() for col in processed_df. columns]
-            processed_ids = set(processed_df['variant_id']. astype(str))
-            df_to_process = full_df[~full_df['variant_id']. astype(str).isin(processed_ids)]
+            processed_df = pd.read_csv(OUTPUT_CSV, skipinitialspace=True)
+            processed_df.columns = [col.strip() for col in processed_df.columns]  # <-- Add this line
+            processed_ids = set(processed_df['variant_id'].astype(str))
+            df_to_process = full_df[~full_df['Variant ID'].astype(str).isin(processed_ids)]
             
             print(f"📄 Resuming...  {len(processed_df)} products already processed")
             print(f"📋 Remaining products: {len(df_to_process)}\n")
+            
         except Exception as e:
             print(f"⚠️ Could not load progress: {e}")
-            df_to_process = full_df. copy()
+            import traceback
+            traceback.print_exc()
+            df_to_process = full_df.copy()
     else:
         df_to_process = full_df.copy()
         print(f"📄 Starting fresh with {len(df_to_process)} products\n")
     
     if len(df_to_process) == 0:
         print("✅ All products already processed!")
+        # Still convert to Excel
         convert_csv_to_excel(OUTPUT_CSV)
         return
     
@@ -620,7 +717,7 @@ def unified_search_and_scrape():
     
     processed_count = 0
     
-    for index, row in df_to_process.iterrows():
+    for index , row in df_to_process.iterrows():
         product_start_time = time.time()
         search_count += 1
         
@@ -668,17 +765,23 @@ def unified_search_and_scrape():
             price = "Not Found"
             status = "Not Found"
             
+            time.sleep(random.uniform(2,3))
             # ===== STRATEGY 1: Amazon.ae Direct Search =====
             print(f"\n🎯 STRATEGY 1: Amazon.ae Direct Search")
             
             # Try Variant Name
             print(f"\n   📍 Trying: Variant Name")
+            
             product_url = search_amazon_ae_direct(variant_name, browser, MATCH_THRESHOLD)
             
+            time.sleep(random.uniform(2,3))
+
             # Try Super Variant Name if failed
             if not product_url and super_variant_name:
                 print(f"\n   📍 Trying: Super Variant Name")
                 product_url = search_amazon_ae_direct(super_variant_name, browser, MATCH_THRESHOLD)
+            
+            time.sleep(random.uniform(2,3))
             
             # Try Model Name if failed
             if not product_url and model_name: 
@@ -702,10 +805,14 @@ def unified_search_and_scrape():
                 print(f"\n   📍 Trying:  Variant Name")
                 product_url, _ = search_duckduckgo_and_get_amazon_url(variant_name, browser)
                 
+                time.sleep(random.uniform(2,3))
+            
                 # Try Super Variant Name if failed
                 if not product_url and super_variant_name: 
                     print(f"\n   📍 Trying: Super Variant Name")
                     product_url, _ = search_duckduckgo_and_get_amazon_url(super_variant_name, browser)
+                    
+                time.sleep(random.uniform(2,3))
                 
                 # Try Model Name if failed
                 if not product_url and model_name:
@@ -728,11 +835,15 @@ def unified_search_and_scrape():
                     # Try Variant Name
                     print(f"\n   📍 Trying: Variant Name")
                     product_url, _ = search_google_and_get_amazon_url(variant_name, browser)
+
+                    time.sleep(random.uniform(2,3))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name:
                         print(f"\n   📍 Trying: Super Variant Name")
                         product_url, _ = search_google_and_get_amazon_url(super_variant_name, browser)
+
+                    time.sleep(random.uniform(2,3))
                     
                     # Try Model Name if failed
                     if not product_url and model_name:
@@ -763,8 +874,7 @@ def unified_search_and_scrape():
             }
 
             result_df = pd.DataFrame([row_data], columns=columns)
-            full_path = os.path.join(FOLDER_PATH, OUTPUT_CSV)
-            result_df.to_csv(full_path, mode='a', header=not file_exists, index=False)
+            result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
             file_exists = True
             
             product_time = time.time() - product_start_time
@@ -792,8 +902,7 @@ def unified_search_and_scrape():
                     "product_url": "Error"
                 }
                 result_df = pd.DataFrame([error_row], columns=columns)
-                full_path = os.path.join(FOLDER_PATH, OUTPUT_CSV)
-                result_df.to_csv(full_path, mode='a', header=not file_exists, index=False)
+                result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
                 file_exists = True
             except: 
                 pass
@@ -819,13 +928,13 @@ def unified_search_and_scrape():
     print(f"📊 Total products: {processed_count}")
     print(f"{'='*80}\n")
 
-def convert_csv_to_excel(output_csv):
+def convert_csv_to_excel(OUTPUT_CSV):
     """Convert CSV to Excel"""
     print(f"\n{'='*80}")
     print(f"📊 Converting to Excel format...")
     
     try:
-        csv_df = pd.read_csv(output_csv)
+        csv_df = pd.read_csv(OUTPUT_CSV)
         
         with pd.ExcelWriter(OUTPUT_EXCEL, engine='openpyxl') as writer:
             csv_df.to_excel(writer, sheet_name='Price Results', index=False)
