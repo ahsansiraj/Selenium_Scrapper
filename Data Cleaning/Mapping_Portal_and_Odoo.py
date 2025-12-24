@@ -2,11 +2,11 @@ import pandas as pd
 
 # ================= LOAD FILES =================
 
-portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Stock_Report_2025-12-22.xlsx")
-odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Stock 2025-12-22.xlsx")
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Stock_Report_2025-12-24.xlsx")
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo_Qty_2025-12-24.xlsx")
 
-portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_ Buy_Price_2025-12-22.xlsx")
-odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 2025-12-22.xlsx")
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Buy_Price_2025-12-24.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo_Price_2025-12-24.xlsx")
 
 # ================= FIX COLUMN NAMES =================
 
@@ -83,7 +83,7 @@ for col in ["PortalQty", "OdooQty", "PortalPrice", "OdooPrice"]:
 
 # ================= FILTER: KEEP ONLY ROWS WHERE BOTH PORTAL AND ODOO QTY > 0 =================
 
-df = df[(df["PortalQty"] > 0) & (df["OdooQty"] > 0)]
+df = df[(df["PortalQty"] > 0) & (df["OdooQty"] > 0) & (df["PortalPrice"] > 0) & (df["OdooPrice"] > 0)]
 
 # ================= MATCH FLAGS =================
 
@@ -166,6 +166,6 @@ final = df[[
     "Remark"
 ]]
 
-final.to_csv(r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_ResultsMapped_Result.csv", index=False)
+final.to_csv(r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Mapped_Result.csv", index=False)
 
 print("DONE — Qty & Price mapping completed")
