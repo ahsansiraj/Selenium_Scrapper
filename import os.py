@@ -41,17 +41,17 @@ PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker',
                  'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
                  'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
 
-BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
+BRANDS = {'htc', 'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
           'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
-          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google'}
+          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
 
-MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref'}
+MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref','Pre-Owned Phone', 'Pre-Owned Smart Phone'}
 
 COLOR_DICTIONARY = {
     # Black family
     'black', 'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 
     'obsidian', 'space black', 'cosmic black', 'stellar black', 'graphite',
-    'charcoal', 'ebony', 'raven',
+    'charcoal', 'ebony', 'raven', 'brilliant black'
     
     # White family
     'white', 'pearl white', 'alpine white', 'glacier white', 'ceramic white',
@@ -171,9 +171,12 @@ def preprocess_text(text):
     return ' '.join([word for word in text.split() if word not in STOP_WORDS])
 
 def extract_storage(title):
-    """Extract storage capacity"""
-    match = re.search(r'(\d+)\s?(gb|tb|mb)', title, re.IGNORECASE)
-    return match.group(0).lower().replace(' ', '') if match else None
+    """Extract all storage capacities (RAM and ROM)"""
+    matches = re.findall(r'(\d+)\s?(gb|tb|mb)', title, re.IGNORECASE)
+    if matches:
+        # Return as "3gb 32gb"
+        return ' '.join([f"{match[0]}{match[1].lower()}" for match in matches])
+    return None
 
 def extract_brand_and_model(variant_name):
     """Extract brand and model from variant name"""
@@ -288,7 +291,7 @@ def calculate_match_score(variant, product_title):
     variant_lower = variant.lower()
     
     # 1. BASE FUZZY SCORE (0-50 points) - 50% of total weight
-    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 0.5
+    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 1.0
     
     # 2. STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
@@ -310,7 +313,7 @@ def calculate_match_score(variant, product_title):
     
     if variant_brand:
         if variant_brand in title_lower:
-            brand_score = 15  # Correct brand
+            brand_score = 20  # Correct brand
         else:
             # Check if a competing brand is present
             competing_brands = BRANDS - {variant_brand}
@@ -573,11 +576,12 @@ def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
         best_url = None
         best_title = ""
         
-        for result in search_results[: 20]: 
+        for result in search_results[:20]: 
             try:
                 # Try multiple selectors
                 title_elem = None
                 for selector in [
+                    "div.a-section.a-spacing-none.a-spacing-top-small.s-title-instructions-style",
                     "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span",
                     "h2.a-size-base-plus span",
                     "h2 span.a-text-normal",
@@ -593,12 +597,14 @@ def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
                 if not title_elem:
                     continue
                 
-                title_text = title_elem.text.strip()
+                title_text = ' '.join(title_elem.text.strip().split())
                 
                 if not title_text:
                     continue
                 
                 score = calculate_match_score(search_term, title_text)
+                
+                print(f"   🎯 Best match score: {best_score} (Threshold: {match_threshold})")
                 
                 if score > best_score and score >= match_threshold:
                     best_score = score
@@ -608,7 +614,6 @@ def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
             except:
                 continue
         
-        print(f"   🎯 Best match score: {best_score:1f} (Threshold: {match_threshold})")
         
         if best_url:
             print(f"   ✅ Match:  {best_title[: 60]}...")
@@ -721,7 +726,7 @@ def unified_search_and_scrape():
             processed_ids = set(processed_df['variant_id'].astype(str))
             df_to_process = full_df[~full_df['Variant ID'].astype(str).isin(processed_ids)]
             
-            print(f"📄 Resuming...  {len(processed_df)} products done")
+            print(f"📄 Resuming...  {len(processed_df)+2} products done")
             print(f"📋 Remaining: {len(df_to_process)}\n")
         except Exception as e:
             print(f"⚠️ Could not load progress: {e}")

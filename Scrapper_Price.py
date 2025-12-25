@@ -22,7 +22,7 @@ OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
 END_ROW = 3342     # UPDATE THIS
             
-MATCH_THRESHOLD=65
+MATCH_THRESHOLD=80
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
@@ -40,9 +40,9 @@ PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker',
 
 BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
           'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
-          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google'}
+          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
 
-MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref'}
+MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref','Pre-Owned Phone', 'Pre-Owned Smart Phone'}
 
 COLOR_DICTIONARY = {
     # Black family
@@ -339,7 +339,7 @@ def calculate_match_score(variant, product_title):
     variant_lower = variant.lower()
     
     # 1. BASE FUZZY SCORE (0-50 points) - 50% of total weight
-    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 0.5
+    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 1.0
     
     # 2. STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
@@ -361,7 +361,7 @@ def calculate_match_score(variant, product_title):
     
     if variant_brand:
         if variant_brand in title_lower:
-            brand_score = 15  # Correct brand
+            brand_score = 20  # Correct brand
         else:
             # Check if a competing brand is present
             competing_brands = BRANDS - {variant_brand}
