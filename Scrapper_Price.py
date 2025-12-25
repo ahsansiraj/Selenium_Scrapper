@@ -347,7 +347,7 @@ def calculate_match_score(variant, product_title):
     
     if variant_cap and title_cap: 
         if variant_cap == title_cap:
-            storage_score = 15  # Perfect match
+            storage_score = 20  # Perfect match
         else: 
             storage_score = -15  # Wrong storage is a big problem
     elif variant_cap and not title_cap:
