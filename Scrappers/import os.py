@@ -4,23 +4,26 @@ import time
 import random
 import pandas as pd
 from datetime import datetime
+from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-import undetected_chromedriver as uc
+from webdriver_manager.chrome import ChromeDriverManager
 from rapidfuzz import fuzz
 
 from search_engines import search_duckduckgo_and_get_amazon_url
 from search_engines import search_google_and_get_amazon_url
 
 # ---------- CONFIG ----------
-EXCEL_FILE = "relation_data.xlsx"  # UPDATE THIS PATH
+EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  # UPDATE THIS PATH
 SHEET_NAME = "relation_data"                   # UPDATE THIS SHEET NAME
 OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
 OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
-END_ROW = 3342     # UPDATE THIS
+END_ROW = 3000       # UPDATE THIS
             
 MATCH_THRESHOLD=80
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
@@ -38,7 +41,7 @@ PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker',
                  'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
                  'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
 
-BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
+BRANDS = {'htc', 'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
           'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
           'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
 
@@ -48,7 +51,7 @@ COLOR_DICTIONARY = {
     # Black family
     'black', 'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 
     'obsidian', 'space black', 'cosmic black', 'stellar black', 'graphite',
-    'charcoal', 'ebony', 'raven',
+    'charcoal', 'ebony', 'raven', 'brilliant black'
     
     # White family
     'white', 'pearl white', 'alpine white', 'glacier white', 'ceramic white',
@@ -122,96 +125,42 @@ COLOR_SYNONYMS = {
     'space gray': {'space grey', 'metallic gray', 'titanium gray'},
 }
 
-# ---------- BROWSER SETUP ----------
-def create_browser_with_anti_detection():
+# ---------- BROWSER SETUP (VANILLA SELENIUM) ----------
+def create_browser_stealth():
     """
-    Creates an undetected Chrome browser with anti-detection measures enabled.
-    This makes our scraper look like a real human browsing, not a bot. 
+    Production-grade browser with MINIMAL anti-detection
+    Key insight: Less is more.  Amazon detects "trying too hard"
     """
+    options = Options()
     
-    # Create options for undetected chrome
-    options = uc.ChromeOptions()
-    
-    # Window settings
+    # Basic options only
     options.add_argument("--start-maximized")
-    options.add_argument("--window-size=1920,1080")
     options.add_argument(f"user-agent={USER_AGENT}")
-    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
     
-    # Memory limits
-    options.add_argument("--max_old_space_size=4096")  # Limit memory to 4GB
-    options.add_argument("--js-flags=--max-old-space-size=4096")
+    # Critical:  Disable automation flags
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
     
-    # Random user agent
-    # user_agent = random.choice(USER_AGENTS)
-    # options.add_argument(f"user-agent={user_agent_index}")
-    
-    # Additional privacy/stealth settings
-    options.add_argument("--disable-popup-blocking")
-    options.add_argument("--disable-notifications")
-    options.add_argument("--disable-extensions")
-    
-    
-    # Preferences to appear more human-like
+    # Basic preferences
     prefs = {
         "credentials_enable_service": False,
         "profile.password_manager_enabled": False,
         "profile.default_content_setting_values.notifications": 2,
-        "profile.managed_default_content_settings.images": 1,  # Load images
     }
     options.add_experimental_option("prefs", prefs)
     
-    try:
-        # Create undetected Chrome browser
-        # version_main parameter should match your installed Chrome version
-        # If not specified, it will try to auto-detect
-        browser = uc.Chrome(
-            options=options,
-            use_subprocess=True,  # More stable
-            version_main=143,  # Uncomment and set your Chrome version if needed
-        )
-        
-        
-        # Additional stealth scripts (optional, but helpful)
-        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": USER_AGENT
-        })
-        
-        # Set navigator properties to appear more human
-        browser.execute_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => false
-            });
-            
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['en-US', 'en']
-            });
-            
-            window.chrome = {
-                runtime: {}
-            };
-            
-            Object.defineProperty(navigator, 'permissions', {
-                get: () => ({
-                    query: () => Promise.resolve({ state: 'granted' })
-                })
-            });
-        """)
-        
-        return browser
-        
-    except Exception as e:
-        print(f"   ❌ Error creating undetected browser: {e}")
-        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
-        raise
+    # Use webdriver_manager for automatic driver handling
+    service = Service(ChromeDriverManager().install())
+    browser = webdriver.Chrome(service=service, options=options)
+    
+    # ONLY ONE stealth script (critical)
+    browser.execute_script("""
+        Object.defineProperty(navigator, 'webdriver', {
+            get:  () => undefined
+        });
+    """)
+    
+    return browser
 
 # ---------- MATCHING LOGIC ----------
 def preprocess_text(text):
@@ -222,9 +171,12 @@ def preprocess_text(text):
     return ' '.join([word for word in text.split() if word not in STOP_WORDS])
 
 def extract_storage(title):
-    """Extract storage capacity"""
-    match = re.search(r'(\d+)\s?(gb|tb|mb)', title, re.IGNORECASE)
-    return match.group(0).lower().replace(' ', '') if match else None
+    """Extract all storage capacities (RAM and ROM)"""
+    matches = re.findall(r'(\d+)\s?(gb|tb|mb)', title, re.IGNORECASE)
+    if matches:
+        # Return as "3gb 32gb"
+        return ' '.join([f"{match[0]}{match[1].lower()}" for match in matches])
+    return None
 
 def extract_brand_and_model(variant_name):
     """Extract brand and model from variant name"""
@@ -339,7 +291,7 @@ def calculate_match_score(variant, product_title):
     variant_lower = variant.lower()
     
     # 1. BASE FUZZY SCORE (0-50 points) - 50% of total weight
-    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 1.0
+    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 0.75
     
     # 2. STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
@@ -347,7 +299,7 @@ def calculate_match_score(variant, product_title):
     
     if variant_cap and title_cap: 
         if variant_cap == title_cap:
-            storage_score = 20  # Perfect match
+            storage_score = 15  # Perfect match
         else: 
             storage_score = -15  # Wrong storage is a big problem
     elif variant_cap and not title_cap:
@@ -484,13 +436,11 @@ def extract_product_condition(productName, browser):
     }
     
     productNameLower = productName.lower()
-    print(f" Checking product condition for: {productNameLower}")
     
     try:
         for condition, keywords in condition_keywords.items():
             for keyword in keywords:
                 if keyword in productNameLower:
-                    print(f"Detected product condition: {condition} (keyword: '{keyword}')")
                     return condition
     except Exception as e:
         print(f" Could not check product name keywords: {e}")
@@ -557,26 +507,175 @@ def handle_amazon_popup(browser):
         # Silently ignore - popup might not exist
         return False
 
-# ---------- SCRAPING FUNCTIONS ----------
-def scrape_price_from_url(product_url, browser):
+# ---------- SEARCH FUNCTIONS (TAB-BASED) ----------
+def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
     """
-    Open product page and extract price
+    KEY INSIGHT: Open search in new tab, keep main tab alive
+    This mimics human behavior: multiple tabs open
     """
     try:
-        print(f"   📄 Opening product page...")
-        browser.get(product_url)
+        print(f"   🔍 Searching Amazon.ae for: {search_term[: 50]}...")
+        
+        # Open Amazon in NEW TAB (not navigate away)
+        browser.execute_script("window.open('https://www.amazon.ae', '_blank');")
+        
+        # Switch to new tab
+        WebDriverWait(browser, 5).until(lambda d:len(d.window_handles) > 1)
+        browser.switch_to.window(browser.window_handles[-1])
+        
         time.sleep(random.uniform(2, 4))
+        handle_amazon_popup(browser)
+        # Search
+        try:
+            search_box = WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located((By.ID, "twotabsearchtextbox"))
+            )
+        except:
+            # If failed, close tab and return
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+            return None
+        
+        search_box.clear()
+        time.sleep(0.5)
+        
+        # Type slowly
+        for char in search_term:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.12))
+        
+        time.sleep(random.uniform(0.7, 1.5))
+        
+        # Submit with ENTER key (more human than clicking button)
+        search_box.send_keys(Keys.ENTER)
+        time.sleep(random.uniform(3, 5))
+        
+        # Click search button
+        # search_button = browser.find_element(By.ID, "nav-search-submit-button")
+        # search_button.click()
+        
+
+        # Get results
+        try:
+            search_results = browser.find_elements(By.XPATH, "//div[@data-component-type='s-search-result']")
+        except:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+            return None
+        
+        if not search_results:
+            print(f"      ⚠️ No results found")
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+            return None
+        
+        print(f"   📊 Found {len(search_results)} results")
+        
+        # Match - Initialize all variables BEFORE loop
+        best_score = 0
+        best_url = None
+        best_title = ""
+        
+        for result in search_results[:20]: 
+            try:
+                # Try multiple selectors
+                title_elem = None
+                for selector in [
+                    "div.a-section.a-spacing-none.a-spacing-top-small.s-title-instructions-style",
+                    "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span",
+                    "h2.a-size-base-plus span",
+                    "h2 span.a-text-normal",
+                    "h2 a span",
+                ]:
+                    try:
+                        title_elem = result.find_element(By.CSS_SELECTOR, selector)
+                        if title_elem:
+                            break
+                    except:
+                        continue
+                
+                if not title_elem:
+                    continue
+                
+                title_text = ' '.join(title_elem.text.strip().split())
+                
+                if not title_text:
+                    continue
+                
+                score = calculate_match_score(search_term, title_text)
+                
+                # Track best score regardless of threshold, but only set URL if meets threshold
+                if score > best_score:
+                    best_score = score
+                    
+                    if score >= match_threshold:
+                        link = result.find_element(By.TAG_NAME, "a")
+                        best_url = link.get_attribute("href")
+                        best_title = title_text
+                        print(f"      📌 Better match found - Score: {score:.2f}")
+            except:
+                continue
+        
+        # Print final matching score - ALWAYS show the best score found
+        print(f"\n   🎯 Best match score: {best_score:.2f} (Threshold: {match_threshold})")
+        
+        if best_url:
+            print(f"   ✅ MATCHED - Title: {best_title[: 60]}...")
+        else:
+            if best_score > 0:
+                print(f"   ❌ NO MATCH - Best score ({best_score:.2f}) below threshold ({match_threshold})")
+            else:
+                print(f"   ❌ NO RESULTS - Could not calculate any matching scores")
+        
+        # CRITICAL: Close search tab, return to main tab
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
+        
+        return best_url
+        
+    except Exception as e:
+        print(f"   ❌ Search error: {e}")
+        try:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+        except:
+            pass
+        return None
+
+def scrape_price_in_new_tab(product_url, browser):
+    """
+    Open product page in new tab, scrape, close tab
+    """
+    try: 
+        print(f"   📄 Opening product page...")
+        
+        # Open in new tab
+        browser.execute_script(f"window.open('{product_url}', '_blank');")
+        WebDriverWait(browser, 5).until(lambda d: len(d.window_handles) > 1)
+        browser.switch_to.window(browser.window_handles[-1])
+        
+        time.sleep(random.uniform(3, 5))
         
         handle_amazon_popup(browser)
         
-        WebDriverWait(browser, 10).until(
-            EC.presence_of_element_located((By.ID, "productTitle"))
-        )
+        try:
+            WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located((By.ID, "productTitle"))
+            )
+        except:
+            print(f"      ⚠️ Product page failed to load")
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+            return {
+                "product_name": "Error",
+                "price": "Error",
+                "status": "Error"
+            }
         
         print(f"   🔍 Extracting price...")
         
         product_name = extract_product_name(browser)
-        product_condition=extract_product_condition(product_name, browser)
+        product_condition = extract_product_condition(product_name, browser)
         price = extract_price(browser)
         
         if price == "Currently Unavailable":
@@ -586,113 +685,33 @@ def scrape_price_from_url(product_url, browser):
         else:
             status = "Price Not Found"
         
+        # Close product tab
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
+        
         return {
-            "product_name":  product_name,
-            "product_condition":product_condition,
+            "product_condition": product_condition,
+            "product_name": product_name,
             "price": price,
-            "status":  status,
-            "product_url": product_url
+            "status": status
         }
         
     except Exception as e:
         print(f"   ❌ Error scraping price: {str(e)}")
+        try:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+        except:
+            pass
         return {
             "product_name": "Error",
-            "product_condition":"Error",
             "price": "Error",
-            "status": "Error",
-            "product_url": product_url
+            "status": "Error"
         }
 
-def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
-    """
-    Search directly on Amazon.ae using search box
-    """
-    try: 
-        print(f"   🔍 Searching Amazon.ae for: {search_term}")
-        
-        browser.get("https://www.amazon.ae")
-        time.sleep(random.uniform(2, 3))
-        
-        handle_amazon_popup(browser)
-        
-        # Find search box
-        search_box = WebDriverWait(browser, 10).until(
-            EC.presence_of_element_located((By.ID, "twotabsearchtextbox"))
-        )
-        search_box.clear()
-        
-        time.sleep(random.uniform(1, 4))
-        
-        for char in search_term:
-            search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
-        
-        time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
-        
-        # search_box.send_keys(search_term)
-
-        # Click search button
-        search_button = browser.find_element(By.ID, "nav-search-submit-button")
-        search_button.click()
-        
-        time.sleep(random.uniform(2, 3))
-        
-        # Wait for results
-        WebDriverWait(browser, 10).until(
-            EC.presence_of_all_elements_located((By.XPATH, "//div[@data-component-type='s-search-result']"))
-        )
-        
-        search_results = browser.find_elements(By.XPATH, "//div[@data-component-type='s-search-result']")
-        
-        print(f"   📊 Found {len(search_results)} results")
-        
-        # Match products
-        best_match_elem = None
-        best_score = 0
-        best_title = ""
-        
-        for result in search_results[:20]: 
-            try:
-                title_elem = result.find_element(By.CSS_SELECTOR, "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span")
-                title_text = title_elem.text.strip()
-                
-                score = calculate_match_score(search_term, title_text)
-                
-                if score > best_score:
-                    best_score = score
-                    best_match_elem = result
-                    best_title = title_text
-                    
-            except:
-                continue
-        
-        print(f"   🎯 Best match score: {best_score} (Threshold: {MATCH_THRESHOLD})")
-        
-        if best_match_elem and best_score >= MATCH_THRESHOLD: 
-            try:
-                link_elem = best_match_elem.find_element(By.TAG_NAME, "a")
-                product_url = link_elem.get_attribute("href")
-                
-                print(f"   ✅ Found matching product: {best_title[: 60]}...")
-                return product_url
-                
-            except Exception as e:
-                print(f"   ⚠️ Error extracting URL: {e}")
-                return None
-        else:
-            print(f"   ⚠️ No match found above threshold")
-            return None
-        
-    except Exception as e: 
-        print(f"   ❌ Error searching Amazon.ae: {str(e)}")
-        return None
-
-# ---------- MAIN ORCHESTRATION ----------
+# ---------- MAIN LOOP (SINGLE SESSION) ----------
 def unified_search_and_scrape():
-    """
-    Main function:  3-tier search strategy with cascading variant names
-    """
+
     total_start_time = time.time()
     
     print(f"\n{'='*80}")
@@ -702,39 +721,34 @@ def unified_search_and_scrape():
     # Read Excel
     try:
         full_df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME)
-        full_df = full_df.iloc[START_ROW-2: END_ROW]
+        full_df = full_df.iloc[START_ROW-2:END_ROW]
         print(f"📊 Loaded {len(full_df)} products from Excel\n")
     except Exception as e:
         print(f"❌ Error reading Excel: {e}")
         return
     
-    # Check for existing progress
+    # Check progress
     if os.path.exists(OUTPUT_CSV) and os.path.getsize(OUTPUT_CSV) > 0:
         try:
             processed_df = pd.read_csv(OUTPUT_CSV, skipinitialspace=True)
-            processed_df.columns = [col.strip() for col in processed_df.columns]  # <-- Add this line
+            processed_df.columns = [col.strip() for col in processed_df.columns]
             processed_ids = set(processed_df['variant_id'].astype(str))
             df_to_process = full_df[~full_df['Variant ID'].astype(str).isin(processed_ids)]
             
-            print(f"📄 Resuming...  {len(processed_df)} products already processed")
-            print(f"📋 Remaining products: {len(df_to_process)}\n")
-            
+            print(f"📄 Resuming...  {len(processed_df)+2} products done")
+            print(f"📋 Remaining: {len(df_to_process)}\n")
         except Exception as e:
             print(f"⚠️ Could not load progress: {e}")
-            import traceback
-            traceback.print_exc()
             df_to_process = full_df.copy()
     else:
         df_to_process = full_df.copy()
-        print(f"📄 Starting fresh with {len(df_to_process)} products\n")
+        print(f"📄 Starting fresh:  {len(df_to_process)} products\n")
     
     if len(df_to_process) == 0:
-        print("✅ All products already processed!")
-        # Still convert to Excel
+        print("✅ All products processed!")
         convert_csv_to_excel(OUTPUT_CSV)
         return
     
-    # Column order
     columns = [
         "variant_id",
         "variant_name",
@@ -742,19 +756,25 @@ def unified_search_and_scrape():
         "model_name",
         "price",
         "status",
-        "product_name",
         "product_condition",
+        "product_name",
         "product_url"
     ]
     
     file_exists = os.path.exists(OUTPUT_CSV) and os.path.getsize(OUTPUT_CSV) > 0
+    
+    # ===== CRITICAL:  Single browser for entire session =====
+    browser = create_browser_stealth()
+    
+    # Open a blank tab (anchor tab that stays open)
+    browser.get("about:blank")
+    
     search_count = 0
-    batch_number = 0
-    browser = create_browser_with_anti_detection()
-    
     processed_count = 0
+    last_amazon_search = 0
+    AMAZON_COOLDOWN = 6  # 6 seconds between Amazon searches
     
-    for index , row in df_to_process.iterrows():
+    for index, row in df_to_process.iterrows():
         product_start_time = time.time()
         search_count += 1
         
@@ -769,139 +789,136 @@ def unified_search_and_scrape():
             
             processed_count += 1
             
-            # Browser refresh cycle
-            if search_count % 15 == 0:
+            # ===== GENTLE SESSION REFRESH (every 50, not 15) =====
+            if search_count % 50 == 0:
                 print(f"\n{'='*80}")
-                print(f"🔄 BROWSER REFRESH: Search count reached {search_count}")
+                print(f"🔄 SESSION REFRESH: {search_count} searches")
                 print(f"{'='*80}")
                 
-                print("   🔒 Closing browser...")
+                # Just clear cookies (don't close browser!)
                 try:
-                    browser.quit()
+                    browser.delete_all_cookies()
+                    print("   🍪 Cleared cookies")
                 except:
                     pass
                 
-                wait_time = random.randint(120, 180)
-                print(f"   ⏸️ Cooling down for {wait_time // 60}m {wait_time % 60}s...")
+                # Short break
+                wait_time = random.randint(45, 75)
+                print(f"   ⏸️ Quick break: {wait_time}s")
                 time.sleep(wait_time)
-                
-                batch_number += 1
-                print(f"\n   🆕 Creating new browser (Batch #{batch_number})...")
-                browser = create_browser_with_anti_detection()
                 print(f"{'='*80}\n")
             
             print(f"{'='*80}")
             print(f"🔎 Product {processed_count}/{len(df_to_process)}")
-            print(f"🆔 Variant ID: {variant_id}")
-            print(f"📝 Variant Name: {variant_name}")
-            print(f"📊 Search Count: {search_count}")
+            print(f"🆔 ID: {variant_id}")
+            print(f"📝 Variant: {variant_name[: 50]}...")
             print(f"{'='*80}")
             
             product_url = None
             product_name = "Not Found"
-            product_condition="Not Found"
             price = "Not Found"
             status = "Not Found"
             
-            time.sleep(random.uniform(2,3))
-            # ===== STRATEGY 1: Amazon.ae Direct Search =====
+            # ===== STRATEGY 1: Amazon. ae Direct =====
             print(f"\n🎯 STRATEGY 1: Amazon.ae Direct Search")
             
-            # Try Variant Name
-            print(f"\n   📍 Trying: Variant Name")
+            # Enforce cooldown
+            time_since_last = time.time() - last_amazon_search
+            if time_since_last < AMAZON_COOLDOWN:
+                cooldown_wait = AMAZON_COOLDOWN - time_since_last
+                print(f"   ⏳ Cooldown: {cooldown_wait:.1f}s")
+                time.sleep(cooldown_wait)
             
-            product_url = search_amazon_ae_direct(variant_name, browser, MATCH_THRESHOLD)
+            # Try cascade
+            for search_name, threshold in [
+                (variant_name, 70),
+                (super_variant_name, 65) if super_variant_name else (None, 0),
+                (model_name, 60) if model_name else (None, 0)
+            ]:
+                if not search_name:
+                    continue
+                
+                print(f"\n   📍 Trying:  {search_name[:40]}...")
+                product_url = search_amazon_ae_direct_tab_based(search_name, browser, threshold)
+                last_amazon_search = time.time()
+                
+                if product_url:
+                    break
+                
+                # Small delay between cascades
+                time.sleep(random.uniform(3, 5))
             
-            time.sleep(random.uniform(2,3))
-
-            # Try Super Variant Name if failed
-            if not product_url and super_variant_name:
-                print(f"\n   📍 Trying: Super Variant Name")
-                product_url = search_amazon_ae_direct(super_variant_name, browser, MATCH_THRESHOLD)
-            
-            time.sleep(random.uniform(2,3))
-            
-            # Try Model Name if failed
-            if not product_url and model_name: 
-                print(f"\n   📍 Trying: Model Name")
-                product_url = search_amazon_ae_direct(model_name, browser, MATCH_THRESHOLD)
-            
-            # Scrape price if found
+            # Scrape if found
             if product_url: 
-                print(f"\n   ✅ Found on Amazon.ae Direct Search!")
-                result = scrape_price_from_url(product_url, browser)
+                print(f"\n   ✅ Found on Amazon.ae!")
+                result = scrape_price_in_new_tab(product_url, browser)
                 product_name = result["product_name"]
-                product_condition=result["product_condition"]
+                product_condition = result["product_condition"]
                 price = result["price"]
                 status = result["status"]
             else:
-                print(f"\n   ⚠️ Strategy 1 failed - trying Strategy 2...")
-                
                 # ===== STRATEGY 2: DuckDuckGo Search =====
+                print(f"\n   ⚠️ Amazon direct failed - trying DuckDuckGo...")
                 print(f"\n🎯 STRATEGY 2: DuckDuckGo Search")
                 
                 # Try Variant Name
                 print(f"\n   📍 Trying:  Variant Name")
                 product_url, _ = search_duckduckgo_and_get_amazon_url(variant_name, browser)
+                time.sleep(random.uniform(3, 5))
                 
-                time.sleep(random.uniform(2,3))
-            
                 # Try Super Variant Name if failed
-                if not product_url and super_variant_name: 
+                if not product_url and super_variant_name:
                     print(f"\n   📍 Trying: Super Variant Name")
                     product_url, _ = search_duckduckgo_and_get_amazon_url(super_variant_name, browser)
-                    
-                time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(3, 5))
                 
                 # Try Model Name if failed
-                if not product_url and model_name:
+                if not product_url and model_name: 
                     print(f"\n   📍 Trying: Model Name")
                     product_url, _ = search_duckduckgo_and_get_amazon_url(model_name, browser)
+                    time.sleep(random.uniform(3, 5))
                 
-                # Scrape price if found
-                if product_url:
+                # If found on DuckDuckGo, scrape price
+                if product_url: 
                     print(f"\n   ✅ Found on DuckDuckGo!")
-                    result = scrape_price_from_url(product_url, browser)
+                    result = scrape_price_in_new_tab(product_url, browser)
                     product_name = result["product_name"]
-                    product_condition=result["product_condition"]
+                    product_condition = result["product_condition"]
                     price = result["price"]
                     status = result["status"]
                 else:
-                    print(f"\n   ⚠️ Strategy 2 failed - trying Strategy 3...")
-                    
                     # ===== STRATEGY 3: Google Search =====
+                    print(f"\n   ⚠️ DuckDuckGo failed - trying Google...")
                     print(f"\n🎯 STRATEGY 3: Google Search")
                     
                     # Try Variant Name
                     print(f"\n   📍 Trying: Variant Name")
                     product_url, _ = search_google_and_get_amazon_url(variant_name, browser)
-
-                    time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(3, 5))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name:
                         print(f"\n   📍 Trying: Super Variant Name")
                         product_url, _ = search_google_and_get_amazon_url(super_variant_name, browser)
-
-                    time.sleep(random.uniform(2,3))
+                        time.sleep(random.uniform(3, 5))
                     
                     # Try Model Name if failed
-                    if not product_url and model_name:
+                    if not product_url and model_name: 
                         print(f"\n   📍 Trying: Model Name")
                         product_url, _ = search_google_and_get_amazon_url(model_name, browser)
+                        time.sleep(random.uniform(3, 5))
                     
-                    # Scrape price if found
+                    # If found on Google, scrape price
                     if product_url:
                         print(f"\n   ✅ Found on Google!")
-                        result = scrape_price_from_url(product_url, browser)
+                        result = scrape_price_in_new_tab(product_url, browser)
                         product_name = result["product_name"]
-                        product_condition=result["product_condition"]
+                        product_condition = result["product_condition"]
                         price = result["price"]
                         status = result["status"]
                     else: 
                         print(f"\n   ❌ All strategies failed - product not found")
                         status = "Not Found"
-            
             # Save result
             row_data = {
                 "variant_id": variant_id,
@@ -910,25 +927,26 @@ def unified_search_and_scrape():
                 "model_name": model_name,
                 "price": price,
                 "status": status,
+                "product_condition": product_condition,
                 "product_name": product_name,
-                "product_condition":product_condition,
                 "product_url":  product_url if product_url else "Not Found"
             }
-
+            
             result_df = pd.DataFrame([row_data], columns=columns)
             result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
             file_exists = True
             
             product_time = time.time() - product_start_time
-            print(f"\n   ⏱️ Product processed in {product_time:.2f}s")
+            print(f"\n   ⏱️ Processed in {product_time:.2f}s")
             print(f"   📊 Status: {status}")
             
-            wait_time = random.randint(4, 7)
-            print(f"   ⏳ Waiting {wait_time} seconds.. .\n")
+            # Natural delay
+            wait_time = random.randint(5, 9)
+            print(f"   ⏳ Waiting {wait_time}s.. .\n")
             time.sleep(wait_time)
             
         except Exception as e:
-            print(f"   ❌ Error processing product: {str(e)}")
+            print(f"   ❌ Error:  {str(e)}")
             import traceback
             traceback.print_exc()
             
@@ -939,19 +957,19 @@ def unified_search_and_scrape():
                     "super_variant_name": super_variant_name if 'super_variant_name' in locals() else "",
                     "model_name": model_name if 'model_name' in locals() else "",
                     "price": "Error",
-                    "status": "Error",
-                    "product_name": "Error",
+                    "status":  "Error",
                     "product_condition": "Error",
+                    "product_name": "Error",
                     "product_url": "Error"
                 }
                 result_df = pd.DataFrame([error_row], columns=columns)
                 result_df.to_csv(OUTPUT_CSV, mode='a', header=not file_exists, index=False)
                 file_exists = True
-            except: 
+            except:
                 pass
             continue
     
-    # Close browser
+    # Close browser at end
     try:
         browser.quit()
     except:
@@ -965,19 +983,19 @@ def unified_search_and_scrape():
     minutes, seconds = divmod(rem, 60)
     
     print(f"\n{'='*80}")
-    print(f"🏁 Scraping completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🏁 Completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"⏱️ Total time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
     print(f"📊 Total searches: {search_count}")
     print(f"📊 Total products: {processed_count}")
     print(f"{'='*80}\n")
 
-def convert_csv_to_excel(OUTPUT_CSV):
+def convert_csv_to_excel(csv_path):
     """Convert CSV to Excel"""
     print(f"\n{'='*80}")
-    print(f"📊 Converting to Excel format...")
+    print(f"📊 Converting to Excel...")
     
     try:
-        csv_df = pd.read_csv(OUTPUT_CSV)
+        csv_df = pd.read_csv(csv_path)
         
         with pd.ExcelWriter(OUTPUT_EXCEL, engine='openpyxl') as writer:
             csv_df.to_excel(writer, sheet_name='Price Results', index=False)
@@ -989,29 +1007,25 @@ def convert_csv_to_excel(OUTPUT_CSV):
                 max_length = max(csv_df[col].astype(str).map(len).max(), len(col))
                 worksheet.column_dimensions[get_column_letter(idx)].width = min(max_length + 2, 50)
         
-        print(f"✅ Excel file created: {OUTPUT_EXCEL}")
+        print(f"✅ Excel created:  {OUTPUT_EXCEL}")
         print(f"📊 Total products: {len(csv_df)}")
         
-        # Print summary statistics
         if 'status' in csv_df.columns:
-            print(f"\n📈 Summary Statistics:")
+            print(f"\n📈 Summary:")
             print(csv_df['status'].value_counts())
         
-    except Exception as e: 
-        print(f"⚠️ Could not create Excel:  {e}")
+    except Exception as e:
+        print(f"⚠️ Excel conversion failed: {e}")
         import traceback
         traceback.print_exc()
 
-# ---------- MAIN ENTRY POINT ----------
+# ---------- ENTRY POINT ----------
 if __name__ == "__main__":
     print("\n" + "="*80)
-    print("🌐 UNIFIED AMAZON.AE PRICE SCRAPER")
+    print("🌐 PRODUCTION-GRADE AMAZON. AE PRICE SCRAPER")
     print("="*80)
-    print("\n🎯 Search Strategy:")
-    print("   1. Amazon.ae Direct Search (Variant → Super Variant → Model)")
-    print("   2. DuckDuckGo Search (Variant → Super Variant → Model)")
-    print("   3. Google Search (Variant → Super Variant → Model)")
-    print("\n📊 Output: Price in AED only")
+    print("\n📊 Prices in AED only")
     print("="*80 + "\n")
     
     unified_search_and_scrape()
+

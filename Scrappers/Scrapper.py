@@ -22,8 +22,6 @@ SHEET_NAME = "Sheet2"
 MATCH_THRESHOLD = 50
 MAX_WORD = 9
 
-# Geographic keyword for prioritizing regional Amazon sites
-# "Dubai" will make Google prioritize amazon.ae results
 GEO_KEYWORD = "Dubai"
 
 STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
@@ -96,20 +94,20 @@ SITE_CONFIG = {
         "END_ROW": 12,
         "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
     },
-    # "noon": {
-    #     "SEARCH_URL": "https://www.noon.com/uae-en/",
-    #     "SEARCH_BOX": (By.ID, "search-input"),
-    #     "RESULTS": (By.CSS_SELECTOR, 'div[data-qa="plp-product-box"]'),
-    #     "TITLE": (By.CSS_SELECTOR, 'h2[data-qa="plp-product-box-name"]'),
-    #     "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2_thumbnailInnerCtr__i7TLy"),
-    #     "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
-    #     "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
-    #     "CSV": "scrape_results_noon.csv",
-    #     "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Noon",
-    #     "START_ROW": 2,
-    #     "END_ROW": 31,
-    #     "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
-    # }
+    "noon": {
+        "SEARCH_URL": "https://www.noon.com/uae-en/",
+        "SEARCH_BOX": (By.ID, "search-input"),
+        "RESULTS": (By.CSS_SELECTOR, 'div[data-qa="plp-product-box"]'),
+        "TITLE": (By.CSS_SELECTOR, 'h2[data-qa="plp-product-box-name"]'),
+        "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2_thumbnailInnerCtr__i7TLy"),
+        "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
+        "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
+        "CSV": "scrape_results_noon.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Noon",
+        "START_ROW": 2,
+        "END_ROW": 31,
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+    }
 }
 
 def search_google_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWORD):

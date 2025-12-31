@@ -19,10 +19,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 # ---------- CONFIG ----------
 EXCEL_FILE = "for Data Scrapping.xlsx"
-SHEET_NAME = "Sheet1"
+SHEET_NAME = "Sheet2"
 CHROME_DRIVER_PATH = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\chromedriver.exe"
 # WAIT_TIME = 10
-MATCH_THRESHOLD = 80
+MATCH_THRESHOLD = 50
 MAX_WORD=11
 # START_ROW = 503
 # END_ROW = 1000
@@ -157,9 +157,9 @@ SITE_CONFIG = {
         "SEARCH_BOX": (By.ID, "search-input"),
         "RESULTS": (By.CSS_SELECTOR, 'div[data-qa="plp-product-box"]'),
         "TITLE": (By.CSS_SELECTOR, 'h2[data-qa="plp-product-box-name"]'),
-        "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2_thumbnailInnerCtr__i7TLy"),
-        "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
-        "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
+        "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2-module-scss-module__hlK6zG__thumbnailInnerCtr"),
+        "IMG_SELECTOR": "button.GalleryV2-module-scss-module__hlK6zG__thumbnailElement img",
+        "LINK": (By.CSS_SELECTOR, 'a.PBoxLinkHandler-module-scss-module__WvRpgq__productBoxLink'),
         "CSV": "scrape_results_noon.csv",
         "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Bulk Uploads\Rounds2\Noon",
         "START_ROW" :2,
