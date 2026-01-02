@@ -385,7 +385,7 @@ def scrape_price_from_url(product_url, browser):
     try:
         print(f"   📄 Opening product page...")
         browser.get(product_url)
-        time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(1, 4))
         
         
         WebDriverWait(browser, 10).until(
@@ -427,26 +427,10 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
     """
     Search directly on Noon.ae using search box
     """
-
-    if create_browser_with_anti_detection()==None:
-        print("   ⚠️ Browser session invalid, recreating...")
-        browser = create_browser_with_anti_detection()
-
     try: 
         print(f"   🔍 Searching Noon.ae for: {search_term}")
         
-        # getUrl=browser.get("https://www.noon.com/uae-en/")
-        # if(getUrl==None):
-        #     # If getUrl is None, quit and recreate the browser session
-        #     print("   ⚠️ getUrl returned None, restarting browser session...")
-        #     try:
-        #         browser.quit()
-        #     except Exception as e:
-        #         print(f"   ⚠️ Error quitting browser: {e}")
-        #     time.sleep(random.randint(5, 10))
-        #     browser = create_browser_with_anti_detection()
-        #     browser.get("https://www.noon.com/uae-en/")
-
+        browser.get("https://www.noon.com/uae-en/")
         time.sleep(random.uniform(2, 3))
         
         
@@ -456,22 +440,22 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
-        time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(1, 4))
         
-        for char in search_term:
-            search_box.send_keys(char)
-            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
+        # for char in search_term:
+        #     search_box.send_keys(char)
+        #     time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
         
         # time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         
-        # search_box.send_keys(search_term)
+        search_box.send_keys(search_term)
         search_box.send_keys(Keys.ENTER)
 
         # # Click search button
         # search_button = browser.find_element(By.ID, "nav-search-submit-button")
         # search_button.click()
         
-        # time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
@@ -636,7 +620,7 @@ def unified_search_and_scrape():
             price = "Not Found"
             status = "Not Found"
             
-            # time.sleep(random.uniform(2,3))
+            time.sleep(random.uniform(2,3))
             # ===== STRATEGY 1: Noon.ae Direct Search =====
             print(f"\n🎯 STRATEGY 1: Noon.ae Direct Search")
             
@@ -658,7 +642,7 @@ def unified_search_and_scrape():
                     break
                 
                 # Small delay between cascades
-                time.sleep(random.uniform(2, 3))
+                time.sleep(random.uniform(3, 5))
 
             # Scrape price if found
             if product_url: 
@@ -678,14 +662,14 @@ def unified_search_and_scrape():
                 print(f"\n   📍 Trying:  Variant Name")
                 product_url, _ = search_duckduckgo_and_get_noon_url(variant_name, browser)
                 
-                time.sleep(random.uniform(1,2))
+                time.sleep(random.uniform(2,3))
             
                 # Try Super Variant Name if failed
                 if not product_url and super_variant_name: 
                     print(f"\n   📍 Trying: Super Variant Name")
                     product_url, _ = search_duckduckgo_and_get_noon_url(super_variant_name, browser)
                     
-                time.sleep(random.uniform(1,2))
+                time.sleep(random.uniform(2,3))
                 
                 # Try Model Name if failed
                 if not product_url and model_name:
@@ -710,14 +694,14 @@ def unified_search_and_scrape():
                     print(f"\n   📍 Trying: Variant Name")
                     product_url, _ = search_google_and_get_noon_url(variant_name, browser)
 
-                    time.sleep(random.uniform(1,2))
+                    time.sleep(random.uniform(2,3))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name:
                         print(f"\n   📍 Trying: Super Variant Name")
                         product_url, _ = search_google_and_get_noon_url(super_variant_name, browser)
 
-                    time.sleep(random.uniform(1,2))
+                    time.sleep(random.uniform(2,3))
                     
                     # Try Model Name if failed
                     if not product_url and model_name:
