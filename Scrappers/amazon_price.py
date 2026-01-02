@@ -14,6 +14,9 @@ from rapidfuzz import fuzz
 from search_engines import search_duckduckgo_and_get_amazon_url
 from search_engines import search_google_and_get_amazon_url
 
+from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, OUTPUT_EXCEL , COLOR_DICTIONARY, COLOR_SYNONYMS)
+
+
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  
 SHEET_NAME = "relation_data"       
@@ -21,105 +24,10 @@ OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Re
 OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      
 END_ROW = 3342                 
-MATCH_THRESHOLD=75  
+MATCH_THRESHOLD=70  
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
-# ---------- MATCHING CONFIGURATION ----------
-STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
-              'on', 'by', 'as', 'at', 'from', 'version', 'international', 'gb', 
-              'single', 'sim', 'unlocked', 'Pre-Owned Phone', 'Pre-Owned Smart Phone' ,
-               'Plus', 'renewed', 'refurbished', '+', 'esim',
-              'physical', 'dual'}
-
-PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker', 
-                 'film', 'adapter', 'charger', 'cable', 'stand', 'holder', 
-                 'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
-                 'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
-
-BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
-          'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
-          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref','Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-COLOR_DICTIONARY = {
-    # Black family
-    'black', 'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 
-    'obsidian', 'space black', 'cosmic black', 'stellar black', 'graphite',
-    'charcoal', 'ebony', 'raven',
-    
-    # White family
-    'white', 'pearl white', 'alpine white', 'glacier white', 'ceramic white',
-    'ivory', 'snow white', 'chalk white', 'silver', 'platinum', 'metallic silver',
-    'stainless steel', 'chrome', 'frost white',
-    
-    # Blue family
-    'blue', 'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 
-    'arctic blue', 'sky blue', 'baby blue', 'azure', 'ice blue', 'midnight blue',
-    'royal blue', 'deep blue', 'pacific blue',
-    
-    # Red family
-    'red', 'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red',
-    'product red', 'coral red', 'fiery red', 'burgundy', '(product)red',
-    
-    # Green family
-    'green', 'forest green', 'emerald green', 'olive green', 'mint green',
-    'alpine green', 'hunter green', 'army green', 'sage green', 'lime green',
-    'pine green',
-    
-    # Gold family
-    'gold', 'rose gold', 'champagne gold', 'sunset gold', 'pink gold',
-    'blush gold', 'yellow gold', 'starlight gold',
-    
-    # Purple family
-    'purple', 'lavender', 'violet', 'orchid', 'lilac', 'amethyst',
-    'deep purple', 'royal purple', 'eggplant', 'plum', 'mauve',
-    
-    # Gray family
-    'gray', 'grey', 'graphite', 'charcoal', 'slate', 'steel gray',
-    'space gray', 'space grey', 'metallic gray', 'titanium', 'ash gray',
-    
-    # Brown family
-    'brown', 'espresso brown', 'chocolate brown', 'cognac', 'tan', 'taupe',
-    
-    # Pink family
-    'pink', 'blush pink', 'rose pink', 'coral pink', 'hot pink', 'magenta',
-    
-    # Orange family
-    'orange', 'sunset orange', 'coral orange', 'tangerine', 'amber',
-    
-    # Yellow family
-    'yellow', 'sunflower yellow', 'golden yellow', 'lemon yellow',
-    
-    # Multi-color
-    'rainbow', 'multicolor', 'prism', 'gradient',
-    
-    # Special editions
-    'starlight', 'sunlight', 'moonlight', 'aurora', 'northern lights'
-}
-
-# Color synonyms for better matching
-COLOR_SYNONYMS = {
-    'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
-    'space black': {'space gray', 'cosmic black', 'stellar black'},
-    'midnight':  {'night', 'noir', 'phantom black'},
-    'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
-    'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
-    'blue':  {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
-    'sky blue': {'baby blue', 'azure', 'ice blue'},
-    'midnight blue': {'navy', 'deep blue', 'royal blue'},
-    'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red', '(product)red', 'product red'},
-    'product red':  {'red', '(red)', 'productred'},
-    'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
-    'alpine green': {'forest green', 'hunter green', 'army green'},
-    'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
-    'rose gold': {'pink gold', 'blush gold'},
-    'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
-    'deep purple': {'royal purple', 'eggplant', 'plum'},
-    'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
-    'space gray': {'space grey', 'metallic gray', 'titanium gray'},
-}
 
 # ---------- BROWSER SETUP ----------
 def create_browser_with_anti_detection():
@@ -223,27 +131,30 @@ def extract_storage(title):
     return match.group(0).lower().replace(' ', '') if match else None
 
 def extract_brand_and_model(variant_name):
-    """Extract brand and model from variant name"""
+    """Extract brand and model from variant name using first few words."""
     words = variant_name.lower().split()
     brand = None
     model = None
-    
-    # Find brand
-    for word in words[:5]:
+
+    # Find brand in first few words
+    for word in words[:8]:
         if word in BRANDS:
             brand = word
             break
-    
-    # Find model number
-    for i, word in enumerate(words):
-        if len(word) >= 4 and any(char.isdigit() for char in word) and any(char.isalpha() for char in word):
-            if i > 0 and words[i-1] in MODEL_KEYWORDS:
-                model = word
-                break
-            elif not any(char.isspace() for char in word):
-                model = word
-                break
-    
+
+    # Remove brand, stopwords, and colors from words
+    filtered = [
+        w for w in words
+        if w not in STOP_WORDS and w not in COLOR_DICTIONARY and (not brand or w != brand)
+    ]
+
+    # Model: first word (or two) after brand
+    if filtered:
+        model = filtered[0]
+        # Optionally, use first two words if model names are often two words
+        if len(filtered) > 1 and len(filtered[1]) > 1:
+            model = f"{filtered[0]} {filtered[1]}"
+
     return brand, model
 
 def extract_colors(text):
@@ -312,7 +223,7 @@ def calculate_match_score(variant, product_title):
     title_lower = product_title.lower()
     variant_lower = variant.lower()
     
-    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 0.75
+    base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 1.0
     
     # 2. STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
@@ -612,7 +523,7 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         
         for result in search_results[:20]: 
             try:
-                title_elem = result.find_element(By.CSS_SELECTOR, "h2.a-size-base-plus.a-spacing-none.a-color-base.a-text-normal span")
+                title_elem = result.find_element(By.CSS_SELECTOR, "div.a-section.a-spacing-none.a-spacing-top-small.s-title-instructions-style")
                 title_text = title_elem.text.strip()
                 
                 score = calculate_match_score(search_term, title_text)
@@ -768,9 +679,23 @@ def unified_search_and_scrape():
             # Try Variant Name
             print(f"\n   📍 Trying: Variant Name")
             
-            product_url = search_amazon_ae_direct(variant_name, browser, MATCH_THRESHOLD)
-            
-            time.sleep(random.uniform(2,3))
+            # Try cascade
+            for search_name, threshold in [
+                (variant_name, 70),
+                (super_variant_name, 65) if super_variant_name else (None, 0),
+                (model_name, 60) if model_name else (None, 0)
+            ]:
+                if not search_name:
+                    continue
+                
+                print(f"\n   📍 Trying:  {search_name[:40]}...")
+                product_url = search_amazon_ae_direct(search_name, browser, threshold)
+                
+                if product_url:
+                    break
+                
+                # Small delay between cascades
+                time.sleep(random.uniform(3, 5))
 
             # Try Super Variant Name if failed
             if not product_url and super_variant_name:

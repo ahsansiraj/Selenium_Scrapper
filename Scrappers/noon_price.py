@@ -14,114 +14,20 @@ from rapidfuzz import fuzz
 from search_engines import search_duckduckgo_and_get_noon_url
 from search_engines import search_google_and_get_noon_url
 
+# ---------- MATCHING CONFIGURATION ----------
+from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, OUTPUT_EXCEL , COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
+
 # ---------- CONFIG ----------
-EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\for Data Scrapping.xlsx"  
-SHEET_NAME = "Sheet3"       
-OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon.csv"
-OUTPUT_EXCEL = "Price_Results_noon.xlsx"
+EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\noontest.xlsx"  
+SHEET_NAME = "Sheet1"       
+OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon_text.csv"
+OUTPUT_EXCEL = "Price_Results_noon_text.xlsx"
 START_ROW = 2      
 END_ROW = 3342                 
 MATCH_THRESHOLD=75 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
-# ---------- MATCHING CONFIGURATION ----------
-STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
-              'on', 'by', 'as', 'at', 'from', 'version', 'international', 'gb', 
-              'single', 'sim', 'unlocked', 'Pre-Owned Phone', 'Pre-Owned Smart Phone' ,
-               'Plus', 'renewed', 'refurbished', '+', 'esim',
-              'physical', 'dual'}
-
-PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker', 
-                 'film', 'adapter', 'charger', 'cable', 'stand', 'holder', 
-                 'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
-                 'bag', 'box', 'holster', 'battery', 'dock', 'keyboard' ,'Protective Case Cover',
-                 'Case' , 'Cover'
-                 }
-
-BRANDS = {'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
-          'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
-          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref','Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-COLOR_DICTIONARY = {
-    # Black family
-    'black', 'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 
-    'obsidian', 'space black', 'cosmic black', 'stellar black', 'graphite',
-    'charcoal', 'ebony', 'raven',
-    
-    # White family
-    'white', 'pearl white', 'alpine white', 'glacier white', 'ceramic white',
-    'ivory', 'snow white', 'chalk white', 'silver', 'platinum', 'metallic silver',
-    'stainless steel', 'chrome', 'frost white',
-    
-    # Blue family
-    'blue', 'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 
-    'arctic blue', 'sky blue', 'baby blue', 'azure', 'ice blue', 'midnight blue',
-    'royal blue', 'deep blue', 'pacific blue',
-    
-    # Red family
-    'red', 'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red',
-    'product red', 'coral red', 'fiery red', 'burgundy', '(product)red',
-    
-    # Green family
-    'green', 'forest green', 'emerald green', 'olive green', 'mint green',
-    'alpine green', 'hunter green', 'army green', 'sage green', 'lime green',
-    'pine green',
-    
-    # Gold family
-    'gold', 'rose gold', 'champagne gold', 'sunset gold', 'pink gold',
-    'blush gold', 'yellow gold', 'starlight gold',
-    
-    # Purple family
-    'purple', 'lavender', 'violet', 'orchid', 'lilac', 'amethyst',
-    'deep purple', 'royal purple', 'eggplant', 'plum', 'mauve',
-    
-    # Gray family
-    'gray', 'grey', 'graphite', 'charcoal', 'slate', 'steel gray',
-    'space gray', 'space grey', 'metallic gray', 'titanium', 'ash gray',
-    
-    # Brown family
-    'brown', 'espresso brown', 'chocolate brown', 'cognac', 'tan', 'taupe',
-    
-    # Pink family
-    'pink', 'blush pink', 'rose pink', 'coral pink', 'hot pink', 'magenta',
-    
-    # Orange family
-    'orange', 'sunset orange', 'coral orange', 'tangerine', 'amber',
-    
-    # Yellow family
-    'yellow', 'sunflower yellow', 'golden yellow', 'lemon yellow',
-    
-    # Multi-color
-    'rainbow', 'multicolor', 'prism', 'gradient',
-    
-    # Special editions
-    'starlight', 'sunlight', 'moonlight', 'aurora', 'northern lights'
-}
-
-# Color synonyms for better matching
-COLOR_SYNONYMS = {
-    'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
-    'space black': {'space gray', 'cosmic black', 'stellar black'},
-    'midnight':  {'night', 'noir', 'phantom black'},
-    'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
-    'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
-    'blue':  {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
-    'sky blue': {'baby blue', 'azure', 'ice blue'},
-    'midnight blue': {'navy', 'deep blue', 'royal blue'},
-    'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red', '(product)red', 'product red'},
-    'product red':  {'red', '(red)', 'productred'},
-    'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
-    'alpine green': {'forest green', 'hunter green', 'army green'},
-    'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
-    'rose gold': {'pink gold', 'blush gold'},
-    'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
-    'deep purple': {'royal purple', 'eggplant', 'plum'},
-    'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
-    'space gray': {'space grey', 'metallic gray', 'titanium gray'},
-}
 
 # ---------- BROWSER SETUP ----------
 def create_browser_with_anti_detection():
@@ -393,38 +299,43 @@ def extract_price(browser):
     """ Extract price from the product page. LIKE "AED 2,611.45"  """
     
     for selectors in ["div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol",
-    "div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr",
-    ]:
+                        "div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr",]:
         try:
-            price_container = browser.find_element(By.CSS_SELECTOR, selectors)
-        
-            # try:
-            #     currency_elem = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__currency.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol")
-            #     currency = currency_elem.text.strip()
-            #     # If the symbol is not a readable currency, force "AED"
-            #     if not currency or ord(currency[0]) < 32 or ord(currency[0]) > 126:
-            #         currency = "AED"
-            # except:
-            #     currency = "AED"
+            
             try:
-                whole = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__priceNowText").text
-                whole = whole.replace('\xa0', '').strip()
-            except:
-                whole = "0"
+                price_container = browser.find_element(By.CSS_SELECTOR, selectors)
             
-        # try:
-        #     fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
-        # except:
-        #     fraction = "00"
+                # try:
+                #     currency_elem = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__currency.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol")
+                #     currency = currency_elem.text.strip()
+                #     # If the symbol is not a readable currency, force "AED"
+                #     if not currency or ord(currency[0]) < 32 or ord(currency[0]) > 126:
+                #         currency = "AED"
+                # except:
+                #     currency = "AED"
+                
+                try:
+                    whole = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__priceNowText").text
+                    whole = whole.replace('\xa0', '').strip()
+                except:
+                    whole = "0"
+                
+                # try:
+                #     fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
+                # except:
+                #     fraction = "00"
+                
+                price = f"AED {whole}"
+                print(f"      ✓ Found price: {price}")
+                return price
+                
+            except :
+                continue
         
-            price = f"AED {whole}"
-            print(f"      ✓ Found price: {price}")
-            return price
-            
         except Exception as e:
             print(f"      ✗ Price not found: {e}")
             return "Currently Unavailable" if e else "Not Found"
-
+        
 def extract_product_name(browser):
     """Extract product name"""
     try:
@@ -474,7 +385,7 @@ def scrape_price_from_url(product_url, browser):
     try:
         print(f"   📄 Opening product page...")
         browser.get(product_url)
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(2, 3))
         
         
         WebDriverWait(browser, 10).until(
@@ -516,10 +427,26 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
     """
     Search directly on Noon.ae using search box
     """
+
+    if create_browser_with_anti_detection()==None:
+        print("   ⚠️ Browser session invalid, recreating...")
+        browser = create_browser_with_anti_detection()
+
     try: 
         print(f"   🔍 Searching Noon.ae for: {search_term}")
         
-        browser.get("https://www.noon.com/uae-en/")
+        # getUrl=browser.get("https://www.noon.com/uae-en/")
+        # if(getUrl==None):
+        #     # If getUrl is None, quit and recreate the browser session
+        #     print("   ⚠️ getUrl returned None, restarting browser session...")
+        #     try:
+        #         browser.quit()
+        #     except Exception as e:
+        #         print(f"   ⚠️ Error quitting browser: {e}")
+        #     time.sleep(random.randint(5, 10))
+        #     browser = create_browser_with_anti_detection()
+        #     browser.get("https://www.noon.com/uae-en/")
+
         time.sleep(random.uniform(2, 3))
         
         
@@ -529,22 +456,22 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
-        time.sleep(random.uniform(1, 4))
+        time.sleep(random.uniform(2, 3))
         
-        # for char in search_term:
-        #     search_box.send_keys(char)
-        #     time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        for char in search_term:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
         
         # time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         
-        search_box.send_keys(search_term)
+        # search_box.send_keys(search_term)
         search_box.send_keys(Keys.ENTER)
 
         # # Click search button
         # search_button = browser.find_element(By.ID, "nav-search-submit-button")
         # search_button.click()
         
-        time.sleep(random.uniform(2, 3))
+        # time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
@@ -709,29 +636,30 @@ def unified_search_and_scrape():
             price = "Not Found"
             status = "Not Found"
             
-            time.sleep(random.uniform(2,3))
+            # time.sleep(random.uniform(2,3))
             # ===== STRATEGY 1: Noon.ae Direct Search =====
             print(f"\n🎯 STRATEGY 1: Noon.ae Direct Search")
             
             # Try Variant Name
             print(f"\n   📍 Trying: Variant Name")
             
-            product_url = search_noon_ae_direct(variant_name, browser, MATCH_THRESHOLD)
-            
-            time.sleep(random.uniform(2,3))
+            for search_name, threshold in [
+                (variant_name, 70),
+                (super_variant_name, 65) if super_variant_name else (None, 0),
+                (model_name, 60) if model_name else (None, 0)
+            ]:
+                if not search_name:
+                    continue
+                
+                print(f"\n   📍 Trying:  {search_name[:40]}...")
+                product_url = search_noon_ae_direct(search_name, browser, threshold)
+                
+                if product_url:
+                    break
+                
+                # Small delay between cascades
+                time.sleep(random.uniform(2, 3))
 
-            # Try Super Variant Name if failed
-            if not product_url and super_variant_name:
-                print(f"\n   📍 Trying: Super Variant Name")
-                product_url = search_noon_ae_direct(super_variant_name, browser, MATCH_THRESHOLD)
-            
-            time.sleep(random.uniform(2,3))
-            
-            # Try Model Name if failed
-            if not product_url and model_name: 
-                print(f"\n   📍 Trying: Model Name")
-                product_url = search_noon_ae_direct(model_name, browser, MATCH_THRESHOLD)
-            
             # Scrape price if found
             if product_url: 
                 print(f"\n   ✅ Found on Noon.ae Direct Search!")
@@ -750,14 +678,14 @@ def unified_search_and_scrape():
                 print(f"\n   📍 Trying:  Variant Name")
                 product_url, _ = search_duckduckgo_and_get_noon_url(variant_name, browser)
                 
-                time.sleep(random.uniform(2,3))
+                time.sleep(random.uniform(1,2))
             
                 # Try Super Variant Name if failed
                 if not product_url and super_variant_name: 
                     print(f"\n   📍 Trying: Super Variant Name")
                     product_url, _ = search_duckduckgo_and_get_noon_url(super_variant_name, browser)
                     
-                time.sleep(random.uniform(2,3))
+                time.sleep(random.uniform(1,2))
                 
                 # Try Model Name if failed
                 if not product_url and model_name:
@@ -782,14 +710,14 @@ def unified_search_and_scrape():
                     print(f"\n   📍 Trying: Variant Name")
                     product_url, _ = search_google_and_get_noon_url(variant_name, browser)
 
-                    time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(1,2))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name:
                         print(f"\n   📍 Trying: Super Variant Name")
                         product_url, _ = search_google_and_get_noon_url(super_variant_name, browser)
 
-                    time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(1,2))
                     
                     # Try Model Name if failed
                     if not product_url and model_name:

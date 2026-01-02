@@ -2,20 +2,27 @@ import os
 import re
 import time
 import random
+import traceback
 import pandas as pd
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox. service import Service as FirefoxService 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager. chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
 from rapidfuzz import fuzz
+import os
 
 from search_engines import search_duckduckgo_and_get_amazon_url
 from search_engines import search_google_and_get_amazon_url
+
+from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, OUTPUT_EXCEL , COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
 
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  # UPDATE THIS PATH
@@ -23,140 +30,68 @@ SHEET_NAME = "relation_data"                   # UPDATE THIS SHEET NAME
 OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
 OUTPUT_EXCEL = "Price_Results.xlsx"
 START_ROW = 2      # UPDATE THIS
-END_ROW = 3000       # UPDATE THIS
-            
+END_ROW = 3000       # UPDATE THIS            
 MATCH_THRESHOLD=80
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
-# ---------- MATCHING CONFIGURATION ----------
-STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
-              'on', 'by', 'as', 'at', 'from', 'version', 'international', 'gb', 
-              'single', 'sim', 'unlocked', 'Pre-Owned Phone', 'Pre-Owned Smart Phone' ,
-               'Plus', 'renewed', 'refurbished', '+', 'esim', 
-              'physical', 'dual'}
-
-PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker', 
-                 'film', 'adapter', 'charger', 'cable', 'stand', 'holder', 
-                 'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
-                 'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
-
-BRANDS = {'htc', 'xiaomi', 'samsung', 'apple', 'dell', 'hp', 'lenovo', 'lg', 'asus', 
-          'acer', 'msi', 'huawei', 'nova', 'oppo', 'vivo', 'realme', 'oneplus',
-          'honor', 'redmi', 'poco', 'motorola', 'nokia', 'sony', 'google' , 'Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-MODEL_KEYWORDS = {'model', 'item', 'part', 'sku', 'pn', 'id', 'art', 'ref','Pre-Owned Phone', 'Pre-Owned Smart Phone'}
-
-COLOR_DICTIONARY = {
-    # Black family
-    'black', 'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 
-    'obsidian', 'space black', 'cosmic black', 'stellar black', 'graphite',
-    'charcoal', 'ebony', 'raven', 'brilliant black'
-    
-    # White family
-    'white', 'pearl white', 'alpine white', 'glacier white', 'ceramic white',
-    'ivory', 'snow white', 'chalk white', 'silver', 'platinum', 'metallic silver',
-    'stainless steel', 'chrome', 'frost white',
-    
-    # Blue family
-    'blue', 'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 
-    'arctic blue', 'sky blue', 'baby blue', 'azure', 'ice blue', 'midnight blue',
-    'royal blue', 'deep blue', 'pacific blue',
-    
-    # Red family
-    'red', 'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red',
-    'product red', 'coral red', 'fiery red', 'burgundy', '(product)red',
-    
-    # Green family
-    'green', 'forest green', 'emerald green', 'olive green', 'mint green',
-    'alpine green', 'hunter green', 'army green', 'sage green', 'lime green',
-    'pine green',
-    
-    # Gold family
-    'gold', 'rose gold', 'champagne gold', 'sunset gold', 'pink gold',
-    'blush gold', 'yellow gold', 'starlight gold',
-    
-    # Purple family
-    'purple', 'lavender', 'violet', 'orchid', 'lilac', 'amethyst',
-    'deep purple', 'royal purple', 'eggplant', 'plum', 'mauve',
-    
-    # Gray family
-    'gray', 'grey', 'graphite', 'charcoal', 'slate', 'steel gray',
-    'space gray', 'space grey', 'metallic gray', 'titanium', 'ash gray',
-    
-    # Brown family
-    'brown', 'espresso brown', 'chocolate brown', 'cognac', 'tan', 'taupe',
-    
-    # Pink family
-    'pink', 'blush pink', 'rose pink', 'coral pink', 'hot pink', 'magenta',
-    
-    # Orange family
-    'orange', 'sunset orange', 'coral orange', 'tangerine', 'amber',
-    
-    # Yellow family
-    'yellow', 'sunflower yellow', 'golden yellow', 'lemon yellow',
-    
-    # Multi-color
-    'rainbow', 'multicolor', 'prism', 'gradient',
-    
-    # Special editions
-    'starlight', 'sunlight', 'moonlight', 'aurora', 'northern lights'
-}
-
-# Color synonyms for better matching
-COLOR_SYNONYMS = {
-    'black': {'jet black', 'onyx', 'midnight', 'phantom black', 'carbon black', 'obsidian'},
-    'space black': {'space gray', 'cosmic black', 'stellar black'},
-    'midnight':  {'night', 'noir', 'phantom black'},
-    'white': {'pearl white', 'alpine white', 'glacier white', 'ceramic white', 'ivory'},
-    'silver': {'platinum silver', 'metallic silver', 'stainless steel', 'chrome'},
-    'blue':  {'sapphire blue', 'ocean blue', 'navy blue', 'cobalt blue', 'arctic blue'},
-    'sky blue': {'baby blue', 'azure', 'ice blue'},
-    'midnight blue': {'navy', 'deep blue', 'royal blue'},
-    'red': {'crimson red', 'ruby red', 'scarlet', 'vermillion', 'rose red', '(product)red', 'product red'},
-    'product red':  {'red', '(red)', 'productred'},
-    'green': {'forest green', 'emerald green', 'olive green', 'mint green'},
-    'alpine green': {'forest green', 'hunter green', 'army green'},
-    'gold': {'rose gold', 'champagne gold', 'sunset gold', 'pink gold'},
-    'rose gold': {'pink gold', 'blush gold'},
-    'purple': {'lavender', 'violet', 'orchid', 'lilac', 'amethyst'},
-    'deep purple': {'royal purple', 'eggplant', 'plum'},
-    'gray': {'grey', 'graphite', 'charcoal', 'slate', 'steel gray'},
-    'space gray': {'space grey', 'metallic gray', 'titanium gray'},
-}
-
 # ---------- BROWSER SETUP (VANILLA SELENIUM) ----------
 def create_browser_stealth():
     """
-    Production-grade browser with MINIMAL anti-detection
-    Key insight: Less is more.  Amazon detects "trying too hard"
+    Browser with ALL console logs suppressed
     """
-    options = Options()
+    options = ChromeOptions()
     
-    # Basic options only
+    # Basic options
     options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
     options.add_argument(f"user-agent={USER_AGENT}")
     
-    # Critical:  Disable automation flags
+    # Disable automation flags
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
+    
+    # ========== SUPPRESS ALL CHROME LOGS ==========
+    options.add_argument("--log-level=3")  # Only show FATAL errors
+    options.add_argument("--silent")
+    options.add_argument("--disable-logging")
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    
+    # Disable specific noisy features
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-translate")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-component-update")
+    
+    # Disable Bluetooth (stops those bluetooth_adapter errors)
+    options.add_argument("--disable-features=BluetoothAdapter")
     
     # Basic preferences
     prefs = {
         "credentials_enable_service": False,
-        "profile.password_manager_enabled": False,
+        "profile. password_manager_enabled": False,
         "profile.default_content_setting_values.notifications": 2,
     }
     options.add_experimental_option("prefs", prefs)
     
-    # Use webdriver_manager for automatic driver handling
-    service = Service(ChromeDriverManager().install())
+    # Create service with log suppression
+    service = ChromeService(
+        ChromeDriverManager().install(),
+        log_path='NUL' if os.name == 'nt' else '/dev/null'  # Discard ChromeDriver logs
+    )
+    
     browser = webdriver.Chrome(service=service, options=options)
     
-    # ONLY ONE stealth script (critical)
+    # Minimal stealth
     browser.execute_script("""
         Object.defineProperty(navigator, 'webdriver', {
-            get:  () => undefined
+            get: () => undefined
         });
     """)
     
@@ -350,8 +285,9 @@ def calculate_match_score(variant, product_title):
         penalty = -20  # Strong penalty for accessories
     
     # 8. REFURBISHED DETECTION (informational, no penalty for now)
-    # You can add logic here if you want to handle refurbished products differently
-    
+    if any(keyword in title_lower for keyword in ['refurbished', 'renewed', 'pre-owned', 'like new']):
+        pass      
+
     # CALCULATE FINAL SCORE
     final_score = (
         base_score +         # 0-50
@@ -369,47 +305,47 @@ def calculate_match_score(variant, product_title):
     return final_score
 # ---------- PRICE EXTRACTION ----------
 def extract_price(browser):
-    """
-    Extract price from the product page.
-    Amazon stores price in multiple spans:
-    - a-price-symbol: "AED"
-    - a-price-whole: "2,611"
-    - a-price-fraction: "45"
-    
-    We combine them to get: "AED 2,611.45"
-    """
+    # Try main price selector
     try:
         price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price.aok-align-center.reinventPricePriceToPayMargin")
-        
         # Extract currency symbol
         try:
             currency = price_container.find_element(By.CSS_SELECTOR, ".a-price-symbol").text
         except:
             currency = "AED"
-        
         # Extract whole number part (may contain comma like "2,611")
         try:
             whole = price_container.find_element(By.CSS_SELECTOR, ".a-price-whole").text
-            # Remove any whitespace but keep the comma and number
             whole = whole.replace('\xa0', '').strip()
         except:
             whole = "0"
-        
         # Extract fractional part (the cents)
         try:
             fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
         except:
             fraction = "00"
-        
-        # Combine into final price format: "AED 2,611.45"
         price = f"{currency} {whole}.{fraction}"
         print(f"      ✓ Found price: {price}")
-        return price
         
+        return price
+    
     except Exception as e:
-        print(f"      ✗ Price not found: {e}")
-        return "Currently Unavailable" if e else "Not Found"
-
+        # Fallback: Try twister_swatch_price
+        try:
+            price_container = browser.find_element(By.CSS_SELECTOR, "span.twister_swatch_price span.olpWrapper")
+            price_text = price_container.text.strip()
+            match = re.search(r"AED[\s\u00A0]*([\d,]+\.\d{2})", price_text)
+            if match:
+                price = f"AED {match.group(1)}"
+                print(f"      ✓ Found price (fallback): {price}")
+                return price
+            else:
+                print(f"      ✓ Found price (fallback, raw): {price_text}")
+                return price_text
+        except Exception as e2:
+            print(f"      ✗ Price not found: {e2}")
+            return "Currently Unavailable" if e2 else "Not Found"
+        
 def extract_product_name(browser):
     """Extract product name"""
     try:
@@ -542,7 +478,7 @@ def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
         # Type slowly
         for char in search_term:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.12))
+            time.sleep(random.uniform(0.05, 0.08))
         
         time.sleep(random.uniform(0.7, 1.5))
         
@@ -621,12 +557,7 @@ def search_amazon_ae_direct_tab_based(search_term, browser, match_threshold):
         
         if best_url:
             print(f"   ✅ MATCHED - Title: {best_title[: 60]}...")
-        else:
-            if best_score > 0:
-                print(f"   ❌ NO MATCH - Best score ({best_score:.2f}) below threshold ({match_threshold})")
-            else:
-                print(f"   ❌ NO RESULTS - Could not calculate any matching scores")
-        
+            print(f"      🔗 URL: {best_url}\n")
         # CRITICAL: Close search tab, return to main tab
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
@@ -790,7 +721,7 @@ def unified_search_and_scrape():
             processed_count += 1
             
             # ===== GENTLE SESSION REFRESH (every 50, not 15) =====
-            if search_count % 50 == 0:
+            if search_count % 15 == 0:
                 print(f"\n{'='*80}")
                 print(f"🔄 SESSION REFRESH: {search_count} searches")
                 print(f"{'='*80}")
@@ -1017,6 +948,7 @@ def convert_csv_to_excel(csv_path):
     except Exception as e:
         print(f"⚠️ Excel conversion failed: {e}")
         import traceback
+        import re
         traceback.print_exc()
 
 # ---------- ENTRY POINT ----------

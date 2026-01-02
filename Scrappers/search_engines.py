@@ -627,6 +627,8 @@ def search_duckduckgo_and_get_noon_url(variant_name, browser, geo_keyword=GEO_KE
     Search DuckDuckGo instead of Google - much more bot-friendly!
     DuckDuckGo doesn't have aggressive anti-bot measures like Google does.
     """
+
+
     try:
         print("   🔍 Searching on DuckDuckGo...")
         browser.get("https://duckduckgo.com")
