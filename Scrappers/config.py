@@ -1,26 +1,15 @@
-
-# ---------- CONFIG ----------
-EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  
-SHEET_NAME = "relation_data"       
-OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
-OUTPUT_EXCEL = "Price_Results.xlsx"
-START_ROW = 2      
-END_ROW = 3342                 
-MATCH_THRESHOLD=70  
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
-GEO_KEYWORD = "Dubai"
-
+import re
+from selenium.webdriver.common.by import By
 # ---------- MATCHING CONFIGURATION ----------
-STOP_WORDS = {'the', 'a', 'an', 'and', 'or', 'in', 'with', 'for', 'of', 'to', 
-              'on', 'by', 'as', 'at', 'from', 'version', 'international', 'gb', 
+STOP_WORDS = {'version', 'international', 'gb', 
               'single', 'sim', 'unlocked', 'Pre-Owned Phone', 'Pre-Owned Smart Phone' ,
-               'Plus', 'renewed', 'refurbished', '+', 'esim',
+               'Plus', 'renewed', 'refurbished', '+', 'esim', 'wifi', 'cellular',
               'physical', 'dual'}
 
-PENALTY_WORDS = {'case', 'cover', 'protector', 'accessory', 'skin', 'sticker', 
+PENALTY_WORDS = {'case', 'cover', 'protector','protector case cover', 'accessory', 'skin', 'sticker', 
                  'film', 'adapter', 'charger', 'cable', 'stand', 'holder', 
                  'mount', 'grip', 'ring', 'glass', 'shield', 'sleeve', 'pouch', 
-                 'bag', 'box', 'holster', 'battery', 'dock', 'keyboard'}
+                 'bag', 'box', 'holster', 'battery', 'dock', 'keyboard','Protective Case Cover'}
 
 BRANDS = {
     # Phones, Laptops, Tablets, Accessories, Audio, Gaming, Networking, etc.
@@ -245,3 +234,42 @@ COLOR_SYNONYMS = {
     'space gray': {'space grey', 'metallic gray', 'titanium gray'},
 }
 
+# Site configuration for Amazon sites getting images
+SITE_CONFIG = {
+    "amazon.ae": {
+        "SEARCH_URL": "https://www.amazon.ae",
+        "IMG_CONTAINER": (By.ID, "altImages"),
+        "IMG_SELECTOR": "#altImages img",
+        "CSV": "scrape_results_Amazon_ae_R1.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae",
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+    },
+    "amazon.in": {
+        "SEARCH_URL": "https://www.amazon.in",
+        "IMG_CONTAINER": (By.ID, "altImages"),
+        "IMG_SELECTOR": "#altImages img",
+        "CSV": "scrape_results_Amazon_in_R1.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.in",
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+    },
+    "amazon.com": {
+        "SEARCH_URL": "https://www.amazon.com",
+        "IMG_CONTAINER": (By.ID, "altImages"),
+        "IMG_SELECTOR": "#altImages img",
+        "CSV": "scrape_results_Amazon_com_R1.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.com",
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+    },
+    "noon": {
+        "SEARCH_URL": "https://www.noon.com/uae-en/",
+        "SEARCH_BOX": (By.ID, "search-input"),
+        "RESULTS": (By.CSS_SELECTOR, 'div[data-qa="plp-product-box"]'),
+        "TITLE": (By.CSS_SELECTOR, 'h2[data-qa="plp-product-box-name"]'),
+        "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2_thumbnailInnerCtr__i7TLy"),
+        "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
+        "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
+        "CSV": "scrape_results_noon.csv",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Noon",
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+    }
+}

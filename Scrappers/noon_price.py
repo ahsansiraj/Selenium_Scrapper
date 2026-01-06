@@ -36,6 +36,17 @@ def create_browser_with_anti_detection():
     This makes our scraper look like a real human browsing, not a bot. 
     """
     
+    # Clean up old chromedriver files to prevent FileExistsError
+    try:
+        import shutil
+        uc_path = os.path.join(os.getenv('APPDATA'), 'undetected_chromedriver')
+        if os.path.exists(uc_path):
+            print(f"   🧹 Cleaning up old chromedriver files...")
+            shutil.rmtree(uc_path, ignore_errors=True)
+            time.sleep(1)  # Give OS time to release file handles
+    except Exception as e:
+        print(f"   ⚠️  Could not clean up old files: {e}")
+    
     options = uc.ChromeOptions()
     
     # Window settings
@@ -267,9 +278,9 @@ def calculate_match_score(variant, product_title):
     title_words = set(title_proc.split())
     common_words = variant_words & title_words
     
-    # Only count meaningful words (at least 3 chars)
-    meaningful_common = [w for w in common_words if len(w) >= 3]
-    keyword_bonus = min(len(meaningful_common), 5)  # Max 5 points
+    # Only count meaningful words (at least 5 chars)
+    meaningful_common = [w for w in common_words if len(w) >= 5]
+    keyword_bonus = min(len(meaningful_common), 5)  # Max 5 points 
     
     # 7. ACCESSORY PENALTY (-20 points)
     penalty = 0
@@ -298,43 +309,29 @@ def calculate_match_score(variant, product_title):
 def extract_price(browser):
     """ Extract price from the product page. LIKE "AED 2,611.45"  """
     
-    for selectors in ["div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol",
-                        "div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr",]:
+    for selector in ["div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol",
+                     "div.PriceOfferV2-module-scss-module__dHtRPW__priceNowCtr"]:
         try:
+            price_container = browser.find_element(By.CSS_SELECTOR, selector)
             
+            # Try to extract the price text
             try:
-                price_container = browser.find_element(By.CSS_SELECTOR, selectors)
+                whole = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__priceNowText").text
+                whole = whole.replace('\xa0', '').strip()
+            except:
+                whole = "0"
             
-                # try:
-                #     currency_elem = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__currency.PriceOfferV2-module-scss-module__dHtRPW__isCurrencySymbol")
-                #     currency = currency_elem.text.strip()
-                #     # If the symbol is not a readable currency, force "AED"
-                #     if not currency or ord(currency[0]) < 32 or ord(currency[0]) > 126:
-                #         currency = "AED"
-                # except:
-                #     currency = "AED"
-                
-                try:
-                    whole = price_container.find_element(By.CSS_SELECTOR, "span.PriceOfferV2-module-scss-module__dHtRPW__priceNowText").text
-                    whole = whole.replace('\xa0', '').strip()
-                except:
-                    whole = "0"
-                
-                # try:
-                #     fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
-                # except:
-                #     fraction = "00"
-                
-                price = f"AED {whole}"
-                print(f"      ✓ Found price: {price}")
-                return price
-                
-            except :
-                continue
-        
-        except Exception as e:
-            print(f"      ✗ Price not found: {e}")
-            return "Currently Unavailable" if e else "Not Found"
+            price = f"AED {whole}"
+            print(f"      ✓ Found price: {price}")
+            return price
+            
+        except:
+            # This selector didn't work, try the next one
+            continue
+    
+    # If we've tried all selectors and none worked
+    print(f"      ✗ Price not found - all selectors failed")
+    return "Not Found"
         
 def extract_product_name(browser):
     """Extract product name"""
@@ -376,7 +373,6 @@ def extract_product_condition(productName, browser):
     print(f"  Product condition assumed: New (no indicators found)")
     return "New"
 
-
 # ---------- SCRAPING FUNCTIONS ----------
 def scrape_price_from_url(product_url, browser):
     """
@@ -384,8 +380,13 @@ def scrape_price_from_url(product_url, browser):
     """
     try:
         print(f"   📄 Opening product page...")
-        browser.get(product_url)
-        time.sleep(random.uniform(1, 4))
+        
+        # Open in new tab
+        browser.execute_script(f"window.open('{product_url}', '_blank');")
+        WebDriverWait(browser, 5).until(lambda d: len(d.window_handles) > 1)
+        browser.switch_to.window(browser.window_handles[-1])
+        
+        time.sleep(random.uniform(2, 3))
         
         
         WebDriverWait(browser, 10).until(
@@ -400,10 +401,14 @@ def scrape_price_from_url(product_url, browser):
         
         if price == "Currently Unavailable":
             status = "Currently Unavailable"
-        elif price != "Not Found":
-            status = "Success"
-        else:
+        elif price == "Not Found":
             status = "Price Not Found"
+        else:
+            status = "Success"
+        
+        # Close product tab
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
         
         return {
             "product_name":  product_name,
@@ -415,12 +420,15 @@ def scrape_price_from_url(product_url, browser):
         
     except Exception as e:
         print(f"   ❌ Error scraping price: {str(e)}")
+        try:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+        except:
+            pass
         return {
             "product_name": "Error",
-            "product_condition":"Error",
             "price": "Error",
-            "status": "Error",
-            "product_url": product_url
+            "status": "Error"
         }
 
 def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
@@ -431,8 +439,8 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         print(f"   🔍 Searching Noon.ae for: {search_term}")
         
         browser.get("https://www.noon.com/uae-en/")
-        time.sleep(random.uniform(2, 3))
         
+        time.sleep(random.uniform(2, 3))
         
         # Find search box
         search_box = WebDriverWait(browser, 10).until(
@@ -440,22 +448,22 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
-        time.sleep(random.uniform(1, 4))
+        time.sleep(random.uniform(2, 3))
         
-        # for char in search_term:
-        #     search_box.send_keys(char)
-        #     time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        for char in search_term:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
         
         # time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
         
-        search_box.send_keys(search_term)
+        # search_box.send_keys(search_term)
         search_box.send_keys(Keys.ENTER)
 
         # # Click search button
         # search_button = browser.find_element(By.ID, "nav-search-submit-button")
         # search_button.click()
         
-        time.sleep(random.uniform(2, 3))
+        # time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
@@ -578,8 +586,8 @@ def unified_search_and_scrape():
         try:
             variant_id = str(row['Variant ID']).strip()
             variant_name = str(row['Variant Name']).strip()
-            super_variant_name = str(row['Super Variant Name']).strip() if 'Super Variant Name' in row else ""
-            model_name = str(row['Model Name']).strip() if 'Model Name' in row else ""
+            super_variant_name = str(row['Super Variant Name']).strip()
+            model_name = str(row['Model Name']).strip()
             
             if not variant_id:
                 continue
@@ -620,7 +628,7 @@ def unified_search_and_scrape():
             price = "Not Found"
             status = "Not Found"
             
-            time.sleep(random.uniform(2,3))
+            # time.sleep(random.uniform(2,3))
             # ===== STRATEGY 1: Noon.ae Direct Search =====
             print(f"\n🎯 STRATEGY 1: Noon.ae Direct Search")
             
@@ -629,8 +637,8 @@ def unified_search_and_scrape():
             
             for search_name, threshold in [
                 (variant_name, 70),
-                (super_variant_name, 65) if super_variant_name else (None, 0),
-                (model_name, 60) if model_name else (None, 0)
+                (super_variant_name, 65) ,
+                (model_name, 60)
             ]:
                 if not search_name:
                     continue
@@ -642,7 +650,7 @@ def unified_search_and_scrape():
                     break
                 
                 # Small delay between cascades
-                time.sleep(random.uniform(3, 5))
+                time.sleep(random.uniform(2, 3))
 
             # Scrape price if found
             if product_url: 
@@ -662,14 +670,14 @@ def unified_search_and_scrape():
                 print(f"\n   📍 Trying:  Variant Name")
                 product_url, _ = search_duckduckgo_and_get_noon_url(variant_name, browser)
                 
-                time.sleep(random.uniform(2,3))
+                time.sleep(random.uniform(1,2))
             
                 # Try Super Variant Name if failed
                 if not product_url and super_variant_name: 
                     print(f"\n   📍 Trying: Super Variant Name")
                     product_url, _ = search_duckduckgo_and_get_noon_url(super_variant_name, browser)
                     
-                time.sleep(random.uniform(2,3))
+                time.sleep(random.uniform(1,2))
                 
                 # Try Model Name if failed
                 if not product_url and model_name:
@@ -694,14 +702,14 @@ def unified_search_and_scrape():
                     print(f"\n   📍 Trying: Variant Name")
                     product_url, _ = search_google_and_get_noon_url(variant_name, browser)
 
-                    time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(1,2))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name:
                         print(f"\n   📍 Trying: Super Variant Name")
                         product_url, _ = search_google_and_get_noon_url(super_variant_name, browser)
 
-                    time.sleep(random.uniform(2,3))
+                    time.sleep(random.uniform(1,2))
                     
                     # Try Model Name if failed
                     if not product_url and model_name:

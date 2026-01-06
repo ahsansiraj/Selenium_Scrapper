@@ -3,121 +3,31 @@ import re
 import time
 import random
 import pandas as pd
+import requests
 from datetime import datetime
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from rapidfuzz import fuzz
 from selenium.webdriver.common.keys import Keys
 import undetected_chromedriver as uc
-from rapidfuzz import fuzz
 
-from search_engines import search_duckduckgo_and_get_amazon_url
-from search_engines import search_google_and_get_amazon_url
-
-from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, COLOR_DICTIONARY, COLOR_SYNONYMS)
-
-
+from search_engines import search_duckduckgo_and_get_amazon_IMAGES, search_google_and_get_amazon_IMAGES
 # ---------- CONFIG ----------
-EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  
-SHEET_NAME = "relation_data"       
-OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
-OUTPUT_EXCEL = "Price_Results.xlsx"
+EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\New Super Variant.xlsx"  
+SHEET_NAME = "Sheet1"       
+OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\IMAGES_Results.csv"
+OUTPUT_EXCEL = "IMAGES_Results.xlsx"
 START_ROW = 2      
-END_ROW = 3342                 
-MATCH_THRESHOLD=70  
+END_ROW = 1169                 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
 
+from amazon_price import handle_amazon_popup
 
-# ---------- BROWSER SETUP ----------
-def create_browser_with_anti_detection():
-    """
-    Creates an undetected Chrome browser with anti-detection measures enabled.
-    This makes our scraper look like a real human browsing, not a bot. 
-    """
-    
-    options = uc.ChromeOptions()
-    
-    # Window settings
-    options.add_argument("--start-maximized")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument(f"user-agent={USER_AGENT}")
-    options.add_argument("--headless")  # Use new headless mode
-    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
-    
-    # Memory limits
-    options.add_argument("--max_old_space_size=4096")  # Limit memory to 4GB
-    options.add_argument("--js-flags=--max-old-space-size=4096")
-    
-    # Random user agent
-    # user_agent = random.choice(USER_AGENTS)
-    # options.add_argument(f"user-agent={user_agent_index}")
-    
-    # Additional privacy/stealth settings
-    options.add_argument("--disable-popup-blocking")
-    options.add_argument("--disable-notifications")
-    options.add_argument("--disable-extensions")
-    
-    
-    # Preferences to appear more human-like
-    prefs = {
-        "credentials_enable_service": False,
-        "profile.password_manager_enabled": False,
-        "profile.default_content_setting_values.notifications": 2,
-        "profile.managed_default_content_settings.images": 1,  # Load images
-    }
-    options.add_experimental_option("prefs", prefs)
-    
-    try:
-        # Create undetected Chrome browser
-        browser = uc.Chrome(
-            options=options,
-            use_subprocess=True,  # More stable
-            version_main=143,  # Uncomment and set your Chrome version if needed
-        )
-        
-        
-        # Additional stealth scripts (optional, but helpful)
-        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": USER_AGENT
-        })
-        
-        # Set navigator properties to appear more human
-        browser.execute_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => false
-            });
-            
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['en-US', 'en']
-            });
-            
-            window.chrome = {
-                runtime: {}
-            };
-            
-            Object.defineProperty(navigator, 'permissions', {
-                get: () => ({
-                    query: () => Promise.resolve({ state: 'granted' })
-                })
-            });
-        """)
-        
-        return browser
-        
-    except Exception as e:
-        print(f"   ❌ Error creating undetected browser: {e}")
-        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
-        raise
-
+from config import ( SITE_CONFIG,PENALTY_WORDS,COLOR_DICTIONARY,COLOR_SYNONYMS,STOP_WORDS, BRANDS)
+from search_engines import create_browser_with_anti_detection
 # ---------- MATCHING LOGIC ----------
 def preprocess_text(text):
     """Normalize text for matching"""
@@ -298,203 +208,94 @@ def calculate_match_score(variant, product_title):
     final_score = max(0, min(100, final_score))
     
     return final_score
-# ---------- PRICE EXTRACTION ----------
-def extract_price(browser):
-    # Try main price selector
+
+
+def print_time_elapsed(start_time, message=""):
+    """Helper function to display elapsed time in HH:MM:SS format"""
+    elapsed = time.time() - start_time
+    hours, rem = divmod(elapsed, 3600)
+    minutes, seconds = divmod(rem, 60)
+    print(f"{message} Time elapsed: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
+
+def create_variant_folder(variant_id, site):
+    """Create a folder for storing product images"""
+    folder_path = os.path.join(SITE_CONFIG[site]["OUTPUT_DIR"], variant_id)
+    os.makedirs(folder_path, exist_ok=True)
+    return folder_path
+
+def download_image(url, save_path):
+    """Download an image from URL and save it to disk"""
     try:
-        price_container = browser.find_element(By.CSS_SELECTOR, "span.a-price.aok-align-center.reinventPricePriceToPayMargin")
-        # Extract currency symbol
-        try:
-            currency = price_container.find_element(By.CSS_SELECTOR, ".a-price-symbol").text
-        except:
-            currency = "AED"
-        # Extract whole number part (may contain comma like "2,611")
-        try:
-            whole = price_container.find_element(By.CSS_SELECTOR, ".a-price-whole").text
-            whole = whole.replace('\xa0', '').strip()
-        except:
-            whole = "0"
-        # Extract fractional part (the cents)
-        try:
-            fraction = price_container.find_element(By.CSS_SELECTOR, ".a-price-fraction").text
-        except:
-            fraction = "00"
-        price = f"{currency} {whole}.{fraction}"
-        print(f"      ✓ Found price: {price}")
-        
-        return price
-    
+        headers = {"User-Agent": "Mozilla/5.0"}
+        img_data = requests.get(url, headers=headers).content
+        with open(save_path, "wb") as f:
+            f.write(img_data)
+        print(f"   ✅ Saved: {save_path}")
     except Exception as e:
-        # Fallback: Try twister_swatch_price
-        try:
-            price_container = browser.find_element(By.CSS_SELECTOR, "span.twister_swatch_price span.olpWrapper")
-            price_text = price_container.text.strip()
-            match = re.search(r"AED[\s\u00A0]*([\d,]+\.\d{2})", price_text)
-            if match:
-                price = f"AED {match.group(1)}"
-                print(f"      ✓ Found price (fallback): {price}")
-                return price
-            else:
-                print(f"      ✓ Found price (fallback, raw): {price_text}")
-                return price_text
-        except Exception as e2:
-            print(f"      ✗ Price not found: {e2}")
-            return "Currently Unavailable" if e2 else "Not Found"
+        print(f"   ❌ Failed to download {url} - {e}")
 
-def extract_product_name(browser):
-    """Extract product name"""
+def shorten_Variant_name(name, MAX_WORD):
+    """Shorten product name to first N words for cleaner Google searches"""
+    return ' '.join(name.split()[:MAX_WORD])
+
+def scrape_product_images(browser, variant_id, site):
+    """
+    Scrape all product images from the current Amazon product page.
+    This works for all Amazon sites (ae, in, com) since they share the same structure.
+    """
+    cfg = SITE_CONFIG[site]
+    folder_path = create_variant_folder(variant_id, site)
+    img_count = 0
+    seen = set()
+
     try:
-        product_title = browser.find_element(By.ID, "productTitle")
-        name = product_title.text.strip()
-        if name:
-            print(f"      ✓ Found product name: {name[: 60]}...")
-            return name
-    except:
-        pass
-    
-    print(f"      ✗ Product name not found")
-    return "Not Found"
-
-def extract_product_condition(productName, browser):
-    """
-    Determine product condition based on keywords in the product name.
-    First checks if refurbished badge exists on the page, then checks product name keywords.
-    """
-    condition_keywords = {
-        "Used": ["used", "pre-owned", "second hand"],
-        "Refurbished": ["refurbished", "renewed", "like new"],
-        "New": ["new", "brand new", "sealed"]
-    }
-    
-    productNameLower = productName.lower()
-    print(f" Checking product condition for: {productNameLower}")
-    
-    try:
-        for condition, keywords in condition_keywords.items():
-            for keyword in keywords:
-                if keyword in productNameLower:
-                    print(f"Detected product condition: {condition} (keyword: '{keyword}')")
-                    return condition
-    except Exception as e:
-        print(f" Could not check product name keywords: {e}")
-
-    # Check if refurbished badge element exists on the page
-    refurbished_elements = browser.find_elements(By.CSS_SELECTOR, ".refurbished-badge-wrapper i.a-icon.a-icon-addon.refurbished-badge")
-    if refurbished_elements and len(refurbished_elements) > 0:
-        print(f"   Detected product condition: Refurbished (badge found on page)")
-        return "Refurbished"
-    
-    print(f"  Product condition assumed: New (no indicators found)")
-    return "New"
-
-def handle_amazon_popup(browser):
-    """
-    Automatically click the 'Continue Shopping' button on Amazon.ae popup
-    Handles both Arabic and English versions
-    """
-    try: 
-        # Wait a bit for popup to appear
-        time.sleep(1)
-        
-        # Multiple selectors for the button (Amazon changes them)
-        button_selectors = [
-            # Arabic button
-            "//button[contains(text(), 'متابعة التسوق')]",
-            "//input[@type='submit'][contains(@value, 'متابعة')]",
-            "//button[contains(@class, 'a-button-text')][contains(text(), 'متابعة')]",
-            
-            # English button (fallback)
-            "//button[contains(text(), 'Continue shopping')]",
-            "//input[@type='submit'][contains(@value, 'Continue')]",
-            
-            # Generic form submit button
-            "form[action*='/errors/validateCaptcha'] button[type='submit']",
-            "form[action*='/errors/validateCaptcha'] input[type='submit']",
-            
-            # By class name
-            "button.a-button-text",
-        ]
-        
-        for selector in button_selectors:
-            try:
-                if selector.startswith("//"):
-                    # XPath selector
-                    button = browser.find_element(By.XPATH, selector)
-                else:
-                    # CSS selector
-                    button = browser.find_element(By.CSS_SELECTOR, selector)
-                
-                if button and button.is_displayed():
-                    print("      ✓ Found Amazon verification popup - clicking...")
-                    button.click()
-                    time.sleep(2)  # Wait for page to reload
-                    print("      ✅ Popup dismissed")
-                    return True
-            except: 
-                continue
-        
-        # No popup found (which is fine)
-        return False
-        
-    except Exception as e: 
-        # Silently ignore - popup might not exist
-        return False
-
-# ---------- SCRAPING FUNCTIONS ----------
-def scrape_price_from_url(product_url, browser):
-    """
-    Open product page and extract price
-    """
-    try:
-        print(f"   📄 Opening product page...")
-        browser.get(product_url)
-        time.sleep(random.uniform(2, 4))
-        
-        handle_amazon_popup(browser)
-        
-        WebDriverWait(browser, 10).until(
-            EC.presence_of_element_located((By.ID, "productTitle"))
+        # Wait for the image container to load
+        WebDriverWait(browser, 8).until(
+            EC.presence_of_element_located(cfg["IMG_CONTAINER"])
         )
-        
-        print(f"   🔍 Extracting price...")
-        
-        product_name = extract_product_name(browser)
-        product_condition=extract_product_condition(product_name, browser)
-        price = extract_price(browser)
-        
-        if price == "Currently Unavailable":
-            status = "Currently Unavailable"
-        elif price != "Not Found":
-            status = "Success"
-        else:
-            status = "Price Not Found"
-        
-        return {
-            "product_name":  product_name,
-            "product_condition":product_condition,
-            "price": price,
-            "status":  status,
-            "product_url": product_url
-        }
-        
-    except Exception as e:
-        print(f"   ❌ Error scraping price: {str(e)}")
-        return {
-            "product_name": "Error",
-            "product_condition":"Error",
-            "price": "Error",
-            "status": "Error",
-            "product_url": product_url
-        }
 
-def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
+        # Find all thumbnail images
+        thumbnails = browser.find_elements(By.CSS_SELECTOR, cfg["IMG_SELECTOR"])
+        print(f"   🔍 Found {len(thumbnails)} thumbnails.")
+
+        # Skip first thumbnail (usually a video or duplicate)
+        for thumb in thumbnails[1:]:
+            try:
+                src = thumb.get_attribute("src")
+                if not src or "transparent" in src:
+                    continue
+
+                # Convert thumbnail URL to high-resolution version
+                high_res_url = cfg["IMG_PROCESS"](src)
+
+                # Skip duplicates
+                if high_res_url in seen:
+                    continue
+                seen.add(high_res_url)
+
+                img_count += 1
+                save_path = os.path.join(folder_path, f"image_{img_count}.jpg")
+                download_image(high_res_url, save_path)
+
+            except Exception as e:
+                print(f"   ⚠️ Skipping thumbnail due to error: {e}")
+                continue
+
+        return img_count > 0
+
+    except Exception as e:
+        print(f"   ❌ Error scraping images - {e}")
+        return False
+
+
+def search_amazon_direct(search_term, browser, MATCH_THRESHOLD, search_url):
     """
     Search directly on Amazon.ae using search box
     """
     try: 
         print(f"   🔍 Searching Amazon.ae for: {search_term}")
         
-        browser.get("https://www.amazon.ae")
+        browser.get(search_url)
         time.sleep(random.uniform(2, 3))
         
         handle_amazon_popup(browser)
@@ -509,9 +310,9 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         
         for char in search_term:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.02, 0.15))  # Random typing speed
+            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
+        time.sleep(random.uniform(0.2, 0.5))  # Pause before hitting enter
         
         # search_box.send_keys(search_term)
 
@@ -571,26 +372,113 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         print(f"   ❌ Error searching Amazon.ae: {str(e)}")
         return None
 
-# ---------- MAIN ORCHESTRATION ----------
-def unified_search_and_scrape():
+def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD,search_url):
     """
-    Main function:  3-tier search strategy with cascading variant names
+    Search directly on Noon.ae using search box
     """
+    try: 
+        print(f"   🔍 Searching Noon.ae for: {search_term}")
+        
+        browser.get(search_url)
+        
+        time.sleep(random.uniform(2, 3))
+        
+        # Find search box
+        search_box = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.ID, "search-input"))
+        )
+        search_box.clear()
+        
+        time.sleep(random.uniform(2, 3))
+        
+        for char in search_term:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
+        
+        # time.sleep(random.uniform(0.5, 1.5))  # Pause before hitting enter
+        
+        # search_box.send_keys(search_term)
+        search_box.send_keys(Keys.ENTER)
+
+        # # Click search button
+        # search_button = browser.find_element(By.ID, "nav-search-submit-button")
+        # search_button.click()
+        
+        # time.sleep(random.uniform(2, 3))
+        
+        # Wait for results
+        WebDriverWait(browser, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[data-qa='plp-product-box']"))
+        )
+        
+        search_results = browser.find_elements(By.CSS_SELECTOR, "div[data-qa='plp-product-box']")
+        
+        print(f"   📊 Found {len(search_results)} results")
+        
+        # Match products
+        best_match_elem = None
+        best_score = 0
+        best_title = ""
+        
+        for result in search_results[:20]: 
+            try:
+                title_elem = result.find_element(By.CSS_SELECTOR, "h2[data-qa='plp-product-box-name']")
+                title_text = title_elem.text.strip()
+                
+                score = calculate_match_score(search_term, title_text)
+                
+                if score > best_score:
+                    best_score = score
+                    best_match_elem = result
+                    best_title = title_text
+                    
+            except:
+                continue
+        
+        print(f"   🎯 Best match score: {best_score} (Threshold: {MATCH_THRESHOLD})")
+        
+        if best_match_elem and best_score >= MATCH_THRESHOLD: 
+            try:
+                link_elem = best_match_elem.find_element(By.CSS_SELECTOR, "a.PBoxLinkHandler-module-scss-module__WvRpgq__productBoxLink")
+                product_url = link_elem.get_attribute("href")
+                
+                print(f"   ✅ Found matching product: {best_title[: 60]}...")
+                return product_url
+                
+            except Exception as e:
+                print(f"   ⚠️ Error extracting URL: {e}")
+                return None
+        else:
+            print(f"   ⚠️ No match found above threshold")
+            return None
+        
+    except Exception as e: 
+        print(f"   ❌ Error searching Noon.ae: {str(e)}")
+        return None
+
+def search_and_scrape(site):
+    """
+    MODIFIED MAIN FUNCTION - Now uses Google search instead of direct Amazon search
+    
+    The key change: Instead of going to Amazon and searching there, we:
+    1. Search on Google for the product + "Dubai"
+    2. Extract the Amazon product URL from Google results
+    3. Go directly to that exact product page
+    4. Scrape the images
+    
+    This eliminates the need for complex product matching logic because
+    Google already finds the exact product page for us!
+    """
+
+    cfg = SITE_CONFIG[site]
     total_start_time = time.time()
-    
-    print(f"\n{'='*80}")
-    print(f"🚀 UNIFIED PRICE SCRAPER - Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*80}\n")
-    
-    # Read Excel
-    try:
-        full_df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME)
-        full_df = full_df.iloc[START_ROW-2: END_ROW]
-        print(f"📊 Loaded {len(full_df)} products from Excel\n")
-    except Exception as e:
-        print(f"❌ Error reading Excel: {e}")
-        return
-    
+    print(f"🚀 Starting {site} scraping process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🌍 Using geo-keyword: '{GEO_KEYWORD}' to prioritize amazon.ae results\n")
+
+    # Read the Excel file containing product information
+    full_df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME)
+    full_df = full_df.iloc[START_ROW-2:END_ROW]
+
     # Check for existing progress
     if os.path.exists(OUTPUT_CSV) and os.path.getsize(OUTPUT_CSV) > 0:
         try:
@@ -621,12 +509,8 @@ def unified_search_and_scrape():
     columns = [
         "variant_id",
         "variant_name",
-        "super_variant_name",
-        "model_name",
-        "price",
         "status",
         "product_name",
-        "product_condition",
         "product_url"
     ]
     
@@ -682,7 +566,6 @@ def unified_search_and_scrape():
             
             product_url = None
             product_name = "Not Found"
-            product_condition="Not Found"
             price = "Not Found"
             status = "Not Found"
             
@@ -694,6 +577,7 @@ def unified_search_and_scrape():
             print(f"\n   📍 Trying: Variant Name")
             
             # Try cascade - skip empty/invalid values
+            product_url = None
             for search_name, threshold in [
                     (variant_name, 70),
                     (super_variant_name, 65),
@@ -703,23 +587,52 @@ def unified_search_and_scrape():
                 if not search_name or search_name == "nan" or pd.isna(search_name):
                     continue
                 
-                print(f"\n   📍 Trying:  {search_name[:50]}")
-                product_url = search_amazon_ae_direct(search_name, browser, threshold)
+                print(f"\n   📍 Trying: {search_name[:50]}...")
                 
+                # Try amazon.ae
+                print(f"      🔍 Searching amazon.ae...")
+                product_url = search_amazon_direct(search_name, browser, threshold, SITE_CONFIG["amazon.ae"]["SEARCH_URL"])
                 if product_url:
+                    print(f"      ✅ Found on amazon.ae!")
                     break
                 
-                # Small delay between cascades
+                time.sleep(random.uniform(1, 2))
+                
+                # Try amazon.in
+                print(f"      🔍 Searching amazon.in...")
+                product_url = search_amazon_direct(search_name, browser, threshold, SITE_CONFIG["amazon.in"]["SEARCH_URL"])
+                if product_url:
+                    print(f"      ✅ Found on amazon.in!")
+                    break
+                
+                time.sleep(random.uniform(1, 2))
+                
+                # Try amazon.com
+                print(f"      🔍 Searching amazon.com...")
+                product_url = search_amazon_direct(search_name, browser, threshold, SITE_CONFIG["amazon.com"]["SEARCH_URL"])
+                if product_url:
+                    print(f"      ✅ Found on amazon.com!")
+                    break
+                
+                time.sleep(random.uniform(1, 2))
+                
+                # Try noon
+                print(f"      🔍 Searching noon...")
+                product_url = search_noon_ae_direct(search_name, browser, threshold, SITE_CONFIG["noon"]["SEARCH_URL"])
+                if product_url:
+                    print(f"      ✅ Found on noon.ae!")
+                    break
+                
+                # If not found on any site with this search_name, try next search_name
+                print(f"      ⚠️ Not found with '{search_name[:30]}...' on any site")
                 time.sleep(random.uniform(2, 4))
 
-            # Scrape price if found
+            # Scrape images if found
             if product_url: 
-                print(f"\n   ✅ Found on Amazon.ae Direct Search!")
-                result = scrape_price_from_url(product_url, browser)
-                product_name = result["product_name"]
-                product_condition=result["product_condition"]
-                price = result["price"]
-                status = result["status"]
+                print(f"\n   ✅ Found product - scraping images!")
+                result = scrape_product_images(browser, variant_id, site)
+                status = "Success" if result else "Scraping Failed"
+
             else:
                 print(f"\n   ⚠️ Strategy 1 failed - trying Strategy 2...")
                 
@@ -728,29 +641,27 @@ def unified_search_and_scrape():
                 
                 # Try Variant Name
                 print(f"\n   📍 Trying:  Variant Name")
-                product_url, _ = search_duckduckgo_and_get_amazon_url(variant_name, browser)
+                product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser)
                 
                 time.sleep(random.uniform(2,3))
             
                 # Try Super Variant Name if failed
                 if not product_url and super_variant_name!= "nan": 
                     print(f"\n   📍 Trying: Super Variant Name")
-                    product_url, _ = search_duckduckgo_and_get_amazon_url(super_variant_name, browser)
+                    product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(super_variant_name, browser)
                     
                 time.sleep(random.uniform(2,3))
                 
                 # Try Model Name if failed
                 if not product_url and model_name!= "nan" :
                     print(f"\n   📍 Trying: Model Name")
-                    product_url, _ = search_duckduckgo_and_get_amazon_url(model_name, browser)
+                    product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(model_name, browser)
                 
                 # Scrape price if found
                 if product_url:
                     print(f"\n   ✅ Found on DuckDuckGo!")
-                    result = scrape_price_from_url(product_url, browser)
+                    result = scrape_product_images(product_url, browser)
                     product_name = result["product_name"]
-                    product_condition=result["product_condition"]
-                    price = result["price"]
                     status = result["status"]
                 else:
                     print(f"\n   ⚠️ Strategy 2 failed - trying Strategy 3...")
@@ -760,29 +671,27 @@ def unified_search_and_scrape():
                     
                     # Try Variant Name
                     print(f"\n   📍 Trying: Variant Name")
-                    product_url, _ = search_google_and_get_amazon_url(variant_name, browser)
+                    product_url, _ = search_google_and_get_amazon_IMAGES(variant_name, browser)
 
                     time.sleep(random.uniform(2,3))
                     
                     # Try Super Variant Name if failed
                     if not product_url and super_variant_name!= "nan":
                         print(f"\n   📍 Trying: Super Variant Name")
-                        product_url, _ = search_google_and_get_amazon_url(super_variant_name, browser)
+                        product_url, _ = search_google_and_get_amazon_IMAGES(super_variant_name, browser)
 
                     time.sleep(random.uniform(2,3))
                     
                     # Try Model Name if failed
                     if not product_url and model_name!= "nan":
                         print(f"\n   📍 Trying: Model Name")
-                        product_url, _ = search_google_and_get_amazon_url(model_name, browser)
+                        product_url, _ = search_google_and_get_amazon_IMAGES(model_name, browser)
                     
                     # Scrape price if found
                     if product_url:
                         print(f"\n   ✅ Found on Google!")
-                        result = scrape_price_from_url(product_url, browser)
+                        result = scrape_product_images(product_url, browser)
                         product_name = result["product_name"]
-                        product_condition=result["product_condition"]
-                        price = result["price"]
                         status = result["status"]
                     else: 
                         print(f"\n   ❌ All strategies failed - product not found")
@@ -794,10 +703,8 @@ def unified_search_and_scrape():
                 "variant_name": variant_name,
                 "super_variant_name": super_variant_name,
                 "model_name": model_name,
-                "price": price,
                 "status": status,
                 "product_name": product_name,
-                "product_condition":product_condition,
                 "product_url":  product_url if product_url else "Not Found"
             }
 
@@ -824,10 +731,8 @@ def unified_search_and_scrape():
                     "variant_name": variant_name,
                     "super_variant_name": super_variant_name if 'super_variant_name' in locals() else "",
                     "model_name": model_name if 'model_name' in locals() else "",
-                    "price": "Error",
                     "status": "Error",
                     "product_name": "Error",
-                    "product_condition": "Error",
                     "product_url": "Error"
                 }
                 result_df = pd.DataFrame([error_row], columns=columns)
@@ -888,16 +793,18 @@ def convert_csv_to_excel(OUTPUT_CSV):
         import traceback
         traceback.print_exc()
 
-# ---------- MAIN ENTRY POINT ----------
 if __name__ == "__main__":
     print("\n" + "="*80)
-    print("🌐 UNIFIED AMAZON.AE PRICE SCRAPER")
+    print("🌐 AMAZON PRODUCT SCRAPER (Google Search Mode)")
     print("="*80)
-    print("\n🎯 Search Strategy:")
-    print("   1. Amazon.ae Direct Search (Variant → Super Variant → Model)")
-    print("   2. DuckDuckGo Search (Variant → Super Variant → Model)")
-    print("   3. Google Search (Variant → Super Variant → Model)")
-    print("\n📊 Output: Price in AED only")
+    print("\nThis scraper uses Google search to find exact Amazon product pages,")
+    print("eliminating the need for complex product matching algorithms.")
+    print(f"\nGeo-targeting: Using '{GEO_KEYWORD}' to prioritize amazon.ae results")
     print("="*80 + "\n")
     
-    unified_search_and_scrape()
+    # site_choice = input("Enter site config to use (amazon.ae / amazon.in / amazon.com / noon): ").strip().lower()
+    site_choice= "amazon.ae"
+    if site_choice in SITE_CONFIG:
+        search_and_scrape(site_choice)
+    else:
+        print("❌ Invalid choice. Please choose from: amazon.ae, amazon.in, amazon.com, or noon")

@@ -1,13 +1,11 @@
 import pandas as pd
-
 # ================= LOAD FILES =================
 
-portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Stock_Report_2025-12-31 1.xlsx")
-portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Buy_Price_31-12-25 1.xlsx")
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P Stock_Report_2026-01-06 1.xlsx")
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Buy_Price_06-01-26 1.xlsx")
 
-odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Qty 31-12-25 1.xlsx")
-odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 31-12-25 1.xlsx")
-
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Stock 06-01-26 1.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 06-01-26 1.xlsx")
 # ================= FIX COLUMN NAMES =================
 
 for df in [portal_stock, odoo_stock, portal_price, odoo_price]:
@@ -93,39 +91,6 @@ df["PriceMatch"] = df["PortalPrice"] == df["OdooPrice"]
 # ================= REMARK LOGIC =================
 
 def remark(row):
-    """
-    Determine a human-readable remark describing differences between portal and Odoo product data.
-    Parameters
-    ----------
-    row : Mapping (e.g., dict or pandas.Series)
-        Expected keys:
-          - "PortalQty" (numeric): quantity reported by the portal
-          - "PortalPrice" (numeric): price reported by the portal
-          - "OdooQty" (numeric): quantity reported by Odoo
-          - "OdooPrice" (numeric): price reported by Odoo
-          - "QtyMatch" (bool): whether quantities match between portal and Odoo
-          - "PriceMatch" (bool): whether prices match between portal and Odoo
-    Returns
-    -------
-    str
-        One of:
-          - "Missing in Portal"         : portal has zero quantity and zero price, while Odoo shows a quantity or price (> 0)
-          - "Quantity Missing in Odoo" : Odoo quantity is zero but portal quantity is > 0
-          - "Price Missing in Odoo"    : Odoo price is zero but portal price is > 0
-          - "Qty & Price Mismatch"     : neither quantity nor price match
-          - "Qty Mismatch"             : quantity does not match
-          - "Price Mismatch"           : price does not match
-          - "OK"                       : no detected issues
-    Behavior notes
-    --------------
-    - The function checks conditions in order and returns the first matching remark (priority matters).
-    - The specific line:
-          if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (row["OdooQty"] > 0 or row["OdooPrice"] > 0):
-      detects items that are effectively missing from the portal (both portal quantity and portal price are zero)
-      while Odoo indicates the item exists (either Odoo quantity > 0 or Odoo price > 0). When true, it returns
-      "Missing in Portal".
-    - Assumes numeric comparisons are valid; missing keys will raise KeyError and non-numeric types may raise TypeError.
-    """
     
     if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (
         row["OdooQty"] > 0 or row["OdooPrice"] > 0
@@ -169,3 +134,38 @@ final = df[[
 final.to_csv(r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Mapped_Result.csv", index=False)
 
 print("DONE — Qty & Price mapping completed")
+
+"""
+    Determine a human-readable remark describing differences between portal and Odoo product data.
+    Parameters
+    ----------
+    row : Mapping (e.g., dict or pandas.Series)
+        Expected keys:
+          - "PortalQty" (numeric): quantity reported by the portal
+          - "PortalPrice" (numeric): price reported by the portal
+          - "OdooQty" (numeric): quantity reported by Odoo
+          - "OdooPrice" (numeric): price reported by Odoo
+          - "QtyMatch" (bool): whether quantities match between portal and Odoo
+          - "PriceMatch" (bool): whether prices match between portal and Odoo
+    Returns
+    -------
+    str
+        One of:
+          - "Missing in Portal"         : portal has zero quantity and zero price, while Odoo shows a quantity or price (> 0)
+          - "Quantity Missing in Odoo" : Odoo quantity is zero but portal quantity is > 0
+          - "Price Missing in Odoo"    : Odoo price is zero but portal price is > 0
+          - "Qty & Price Mismatch"     : neither quantity nor price match
+          - "Qty Mismatch"             : quantity does not match
+          - "Price Mismatch"           : price does not match
+          - "OK"                       : no detected issues
+    Behavior notes
+    --------------
+    - The function checks conditions in order and returns the first matching remark (priority matters).
+    - The specific line:
+          if row["PortalQty"] == 0 and row["PortalPrice"] == 0 and (row["OdooQty"] > 0 or row["OdooPrice"] > 0):
+      detects items that are effectively missing from the portal (both portal quantity and portal price are zero)
+      while Odoo indicates the item exists (either Odoo quantity > 0 or Odoo price > 0). When true, it returns
+      "Missing in Portal".
+    - Assumes numeric comparisons are valid; missing keys will raise KeyError and non-numeric types may raise TypeError.
+    """
+    

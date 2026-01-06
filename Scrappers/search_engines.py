@@ -11,23 +11,6 @@ from selenium.webdriver.common.keys import Keys
 GEO_KEYWORD = "Dubai"
 
 def search_google_and_get_amazon_url(Variant_name, browser, geo_keyword=GEO_KEYWORD):
-    """
-    Search Google for Amazon product URLs with enhanced anti-detection measures.
-    
-    This function implements several strategies to avoid Google's bot detection:
-    - Realistic typing speed (humans don't type instantly)
-    - Random delays between actions
-    - Multiple CSS selectors as fallbacks
-    - Better error handling and debugging
-    
-    Args:
-        Variant_name: The product name to search for
-        browser: Selenium webdriver instance
-        geo_keyword: Location keyword to append (default: "Dubai")
-    
-    Returns:
-        tuple: (product_url, site_name) if found, or (None, None) if not found
-    """
     try:
         # Step 1: Navigate to Google's homepage first to establish a session
         print("   🔍 Navigating to Google...")
@@ -317,59 +300,58 @@ def search_google_and_get_noon_url(Variant_name, browser, geo_keyword=GEO_KEYWOR
             
             return None, None
         
-        # Step 6: Extract all clickable URLs
+        # Extract URLs
         all_urls = []
         for result in search_results:
             try:
                 url = result.get_attribute("href")
-                if url and url.startswith("http") and "google.com" not in url:
-                    all_urls.append(url)
+                
+                if url and url.startswith("http"):
+                    # Exclude Google's own URLs
+                    if "google.com" not in url:
+                        # Only keep Noon URLs
+                        if "noon.com" in url:
+                            all_urls.append(url)
             except:
                 continue
         
-        print(f"   📊 Extracted {len(all_urls)} URLs from search results")
+        print(f"   📊 Found {len(all_urls)} Noon URLs")
         
-        # Debug: Show first few URLs found
-        if all_urls:
-            print(f"   🔗 Sample URLs found:")
-            for url in all_urls[:3]:
-                domain = url.split('/')[2] if len(url.split('/')) > 2 else url
-                print(f"      • {domain}")
+        # Debug: Show all URLs found
+        if all_urls: 
+            print(f"   🔗 Sample URLs:")
+            for url in all_urls[:3]: 
+                print(f"      • {url[: 80]}...")
         
-        # Step 7: Filter and prioritize Amazon URLs
-        # Priority 1: amazon.ae
-        for url in all_urls:
-            if "noon.com" in url and "/dp/" in url:
-                print(f"   ✅ Found noon.com URL (boosted by '{geo_keyword}')")
-                return url, "noon.com"
+        # ✅ FIXED: Filter for actual product pages
+        product_urls = []
         
-        # # Priority 2: amazon.in
-        # for url in all_urls:
-        #     if "amazon.in" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.in URL")
-        #         return url, "amazon.in"
+        for url in all_urls:             
+            # Check if it's a product page (contains /p/ and product ID)
+            if "/p/" in url and "noon.com" in url:
+                # Exclude search/category pages
+                if "/s/" not in url and "/c/" not in url:
+                    # Exclude DuckDuckGo redirect URLs
+                    if "duckduckgo.com" not in url:
+                        product_urls.append(url)
         
-        # # Priority 3: amazon.com
-        # for url in all_urls:
-        #     if "amazon.com" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.com URL")
-        #         return url, "amazon.com"
+        # Return first valid product URL
+        if product_urls:
+            # Prefer UAE region
+            for url in product_urls:
+                if "/uae-en/" in url: 
+                    print(f"   🎯 Selected UAE product URL")
+                    return url, "noon.com"
+            
+            # Fallback to any region
+            print(f"   🎯 Selected product URL (non-UAE)")
+            return product_urls[0], "noon.com"
         
-        print("   ⚠️  No Amazon product URLs found in results")
-        print("   💡 This might mean the product isn't available on Amazon")
+        print("   ⚠️ No valid Noon product URLs found")
         return None, None
         
-    except Exception as e:
+    except Exception as e: 
         print(f"   ❌ Error during Google search: {str(e)}")
-        print(f"   📍 Error type: {type(e).__name__}")
-        
-        # Try to provide helpful context
-        try:
-            print(f"   🌐 Current URL: {browser.current_url}")
-            print(f"   📄 Page title: {browser.title}")
-        except:
-            pass
-        
         return None, None
 
 
@@ -660,32 +642,296 @@ def search_duckduckgo_and_get_noon_url(variant_name, browser, geo_keyword=GEO_KE
         # Extract URLs from DuckDuckGo results
         search_results = browser.find_elements(By.CSS_SELECTOR, "article a")
         
+        # Extract URLs
         all_urls = []
         for result in search_results:
             try:
                 url = result.get_attribute("href")
-                if url and "noon.com" in url and url.startswith("http"):
-                    all_urls.append(url)
+                
+                # ✅ FIXED: Filter properly
+                if url and url.startswith("http"):
+                    # Exclude Google's own URLs
+                    if "google. com" not in url:
+                        # Only keep Noon URLs
+                        if "noon.com" in url:
+                            all_urls.append(url)
             except:
                 continue
         
         print(f"   📊 Found {len(all_urls)} Noon URLs")
         
+        # Debug: Show all URLs found
+        if all_urls: 
+            print(f"   🔗 Sample URLs:")
+            for url in all_urls[:3]: 
+                print(f"      • {url[: 80]}...")
+        
+        # ✅ FIXED: Filter for actual product pages
+        product_urls = []
+        
+        for url in all_urls: 
+            # Noon product page patterns: 
+            # Pattern 1: /uae-en/{slug}/{id}/p/
+            # Pattern 2: /egypt-en/{slug}/{id}/p/
+            # Pattern 3: /saudi-en/{slug}/{id}/p/
+            
+            # Check if it's a product page (contains /p/ and product ID)
+            if "/p/" in url and "noon.com" in url:
+                # Exclude search/category pages
+                if "/s/" not in url and "/c/" not in url:
+                    # Exclude DuckDuckGo redirect URLs
+                    if "duckduckgo.com" not in url:
+                        product_urls. append(url)
+                        print(f"   ✅ Valid product URL: {url[: 80]}...")
+        
+        # Return first valid product URL
+        if product_urls:
+            # Prefer UAE region
+            for url in product_urls:
+                if "/uae-en/" in url: 
+                    print(f"   🎯 Selected UAE product URL")
+                    return url, "noon.com"
+            
+            # Fallback to any region
+            print(f"   🎯 Selected product URL (non-UAE)")
+            return product_urls[0], "noon.com"
+        
+        print("   ⚠️ No valid Noon product URLs found")
+        return None, None
+        
+    except Exception as e: 
+        print(f"   ❌ Error during Google search: {str(e)}")
+        return None, None
+
+
+def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_KEYWORD):
+    """
+    Search Google for Amazon product URLs with enhanced anti-detection measures.
+    
+    This function implements several strategies to avoid Google's bot detection:
+    - Realistic typing speed (humans don't type instantly)
+    - Random delays between actions
+    - Multiple CSS selectors as fallbacks
+    - Better error handling and debugging
+    
+    Args:
+        variant_name: The product name to search for
+        browser: Selenium webdriver instance
+        geo_keyword: Location keyword to append (default: "Dubai")
+    
+    Returns:
+        tuple: (product_url, site_name) if found, or (None, None) if not found
+    """
+    try:
+        # Step 1: Navigate to Google's homepage first to establish a session
+        print("   🔍 Navigating to Google...")
+        browser.get("https://www.google.com")
+        time.sleep(random.uniform(2, 4))  # Random delay to seem more human
+        
+        # Check if we got blocked by looking for consent or CAPTCHA pages
+        page_source = browser.page_source.lower()
+        if "captcha" in page_source or "unusual traffic" in page_source:
+            print("   ⚠️  Google detected automation. You might need to:")
+            print("      1. Wait a few minutes before trying again")
+            print("      2. Use a VPN or change your IP address")
+            print("      3. Manually complete CAPTCHA if browser window shows one")
+            return None, None
+        
+        # Step 2: Create the geo-targeted search query
+        search_query = f"{variant_name} {geo_keyword}"
+        print(f"   🌍 Search query: '{search_query}'")
+        
+        # Step 3: Find Google's search box using multiple selectors
+        search_box = None
+        selectors_to_try = [
+            (By.NAME, "q"),
+            (By.CSS_SELECTOR, "textarea[name='q']"),
+            (By.CSS_SELECTOR, "input[name='q']"),
+            (By.XPATH, "//textarea[@name='q']"),
+            (By.XPATH, "//input[@name='q']")
+        ]
+        
+        for selector_type, selector_value in selectors_to_try:
+            try:
+                search_box = WebDriverWait(browser, 5).until(
+                    EC.presence_of_element_located((selector_type, selector_value))
+                )
+                if search_box:
+                    print(f"   ✓ Found search box using {selector_type}: {selector_value}")
+                    break
+            except:
+                continue
+        
+        if not search_box:
+            print("   ❌ Could not find Google search box. Google might be blocking access.")
+            print("   💡 Try opening Google manually in the browser to check for CAPTCHA")
+            return None, None
+        
+        # Step 4: Type the search query character by character (like a human)
+        search_box.clear()
+        for char in search_query:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        
+        time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
+        search_box.send_keys(Keys.ENTER)
+        
+        # Step 5: Wait for search results to load with multiple strategies
+        print("   ⏳ Waiting for search results...")
+        time.sleep(random.uniform(3, 5))  # Give Google time to fully render
+        
+        # Try multiple selectors for search results
+        search_results = []
+        result_selectors = [
+            "div.g a",
+            "div[data-sokoban-container] a",
+            "div#search a",
+            "div#rso a"
+        ]
+        
+        for selector in result_selectors:
+            try:
+                search_results = browser.find_elements(By.CSS_SELECTOR, selector)
+                if len(search_results) > 5:  # Need reasonable number of results
+                    print(f"   ✓ Found results using selector: {selector}")
+                    break
+            except:
+                continue
+        
+        if not search_results:
+            print("   ❌ No search results found. Possible reasons:")
+            print("      • Google is showing a CAPTCHA")
+            print("      • Google blocked the automated request")
+            print("      • Network connectivity issues")
+            print("   💡 Current page title:", browser.title)
+            
+            # Save screenshot for debugging
+            try:
+                screenshot_path = "google_error_debug.png"
+                browser.save_screenshot(screenshot_path)
+                print(f"   📸 Saved debug screenshot to: {screenshot_path}")
+            except:
+                pass
+            
+            return None, None
+        
+        # Step 6: Extract all clickable URLs
+        all_urls = []
+        for result in search_results:
+            try:
+                url = result.get_attribute("href")
+                if url and url.startswith("http") and "google.com" not in url:
+                    all_urls.append(url)
+            except:
+                continue
+        
+        print(f"   📊 Extracted {len(all_urls)} URLs from search results")
+        
+        # Debug: Show first few URLs found
+        if all_urls:
+            print(f"   🔗 Sample URLs found:")
+            for url in all_urls[:3]:
+                domain = url.split('/')[2] if len(url.split('/')) > 2 else url
+                print(f"      • {domain}")
+        
+        # Step 7: Filter and prioritize Amazon URLs
+        # Priority 1: amazon.ae
+        for url in all_urls:
+            if "amazon.ae" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.ae URL (boosted by '{geo_keyword}')")
+                return url, "amazon.ae"
+        
+        # Priority 2: amazon.in
+        for url in all_urls:
+            if "amazon.in" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.in URL")
+                return url, "amazon.in"
+        
+        # Priority 3: amazon.com
+        for url in all_urls:
+            if "amazon.com" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.com URL")
+                return url, "amazon.com"
+        
+        print("   ⚠️  No Amazon product URLs found in results")
+        print("   💡 This might mean the product isn't available on Amazon")
+        return None, None
+        
+    except Exception as e:
+        print(f"   ❌ Error during Google search: {str(e)}")
+        print(f"   📍 Error type: {type(e).__name__}")
+        
+        # Try to provide helpful context
+        try:
+            print(f"   🌐 Current URL: {browser.current_url}")
+            print(f"   📄 Page title: {browser.title}")
+        except:
+            pass
+        
+        return None, None
+
+def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_KEYWORD):
+    """
+    Search DuckDuckGo instead of Google - much more bot-friendly!
+    DuckDuckGo doesn't have aggressive anti-bot measures like Google does.
+    """
+    try:
+        print("   🔍 Searching on DuckDuckGo...")
+        browser.get("https://duckduckgo.com")
+
+        time.sleep(random.uniform(2, 4))
+        
+        search_query = f"{variant_name} amazon.ae {geo_keyword}"
+        print(f"   🌍 Search query: '{search_query}'")
+        
+        # DuckDuckGo's search box has id="searchbox_input"
+        search_box = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.ID, "searchbox_input"))
+        )
+        search_box.clear()
+        time.sleep(random.uniform(2, 4))
+        for char in search_query:
+            search_box.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+        
+        time.sleep(random.uniform(0.5, 1.0))
+        search_box.send_keys(Keys.ENTER)
+        
+        # Wait for results
+        time.sleep(3)
+        WebDriverWait(browser, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
+        )
+        
+        # Extract URLs from DuckDuckGo results
+        search_results = browser.find_elements(By.CSS_SELECTOR, "article a")
+        
+        all_urls = []
+        for result in search_results:
+            try:
+                url = result.get_attribute("href")
+                if url and "amazon" in url and url.startswith("http"):
+                    all_urls.append(url)
+            except:
+                continue
+        
+        print(f"   📊 Found {len(all_urls)} Amazon URLs")
+        
         # Same priority logic
         for url in all_urls:
-            if "noon.com" in url and "/dp/" in url:
-                print(f"   ✅ Found noon.com URL")
-                return url, "noon.com"
+            if "amazon.ae" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.ae URL")
+                return url, "amazon.ae"
         
-        # for url in all_urls:
-        #     if "amazon.in" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.in URL")
-        #         return url, "amazon.in"
+        for url in all_urls:
+            if "amazon.in" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.in URL")
+                return url, "amazon.in"
         
-        # for url in all_urls:
-        #     if "amazon.com" in url and "/dp/" in url:
-        #         print(f"   ✅ Found amazon.com URL")
-        #         return url, "amazon.com"
+        for url in all_urls:
+            if "amazon.com" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.com URL")
+                return url, "amazon.com"
         
         print("   ⚠️  No Amazon URLs found")
         return None, None
@@ -693,3 +939,91 @@ def search_duckduckgo_and_get_noon_url(variant_name, browser, geo_keyword=GEO_KE
     except Exception as e:
         print(f"   ❌ Error: {str(e)}")
         return None, None
+
+# ---------- BROWSER SETUP ----------
+def create_browser_with_anti_detection():
+    """
+    Creates an undetected Chrome browser with anti-detection measures enabled.
+    This makes our scraper look like a real human browsing, not a bot. 
+    """
+    
+    options = uc.ChromeOptions()
+    
+    # Window settings
+    options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument(f"user-agent={USER_AGENT}")
+    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
+    
+    # Memory limits
+    options.add_argument("--max_old_space_size=5096")  # Limit memory to 5GB
+    options.add_argument("--js-flags=--max-old-space-size=5096")
+    
+    # Random user agent
+    # user_agent = random.choice(USER_AGENTS)
+    # options.add_argument(f"user-agent={user_agent_index}")
+    
+    # Additional privacy/stealth settings
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-extensions")
+    
+    
+    # Preferences to appear more human-like
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.managed_default_content_settings.images": 1,  # Load images
+    }
+    options.add_experimental_option("prefs", prefs)
+    
+    try:
+        # Create undetected Chrome browser
+        browser = uc.Chrome(
+            options=options,
+            use_subprocess=True,  # More stable
+            version_main=143,  # Uncomment and set your Chrome version if needed
+        )
+        
+        
+        # Additional stealth scripts (optional, but helpful)
+        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": USER_AGENT
+        })
+        
+        # Set navigator properties to appear more human
+        browser.execute_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false
+            });
+            
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+            
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
+        """)
+        
+        return browser
+        
+    except Exception as e:
+        print(f"   ❌ Error creating undetected browser: {e}")
+        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
+        raise
