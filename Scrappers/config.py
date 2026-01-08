@@ -238,38 +238,42 @@ COLOR_SYNONYMS = {
 SITE_CONFIG = {
     "amazon.ae": {
         "SEARCH_URL": "https://www.amazon.ae",
+        "PRODUCT_TITLE": (By.ID, "productTitle"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_ae_R1.csv",
         "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae",
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "amazon.in": {
         "SEARCH_URL": "https://www.amazon.in",
+        "PRODUCT_TITLE": (By.ID, "productTitle"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_in_R1.csv",
         "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.in",
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "amazon.com": {
         "SEARCH_URL": "https://www.amazon.com",
+        "PRODUCT_TITLE": (By.ID, "productTitle"),
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_com_R1.csv",
         "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.com",
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._AC_.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "noon": {
         "SEARCH_URL": "https://www.noon.com/uae-en/",
         "SEARCH_BOX": (By.ID, "search-input"),
         "RESULTS": (By.CSS_SELECTOR, 'div[data-qa="plp-product-box"]'),
         "TITLE": (By.CSS_SELECTOR, 'h2[data-qa="plp-product-box-name"]'),
+        "PRODUCT_TITLE": (By.CLASS_NAME, "ProductTitle-module-scss-module__EXiEUa__title"),
         "IMG_CONTAINER": (By.CSS_SELECTOR, "div.GalleryV2_thumbnailInnerCtr__i7TLy"),
         "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
         "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
         "CSV": "scrape_results_noon.csv",
         "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Noon",
-        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '.', url) if url else ""
+        "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '._SL500_.', url) if url else ""
     }
 }

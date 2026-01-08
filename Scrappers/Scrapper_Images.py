@@ -27,7 +27,104 @@ GEO_KEYWORD = "Dubai"
 from amazon_price import handle_amazon_popup
 
 from config import ( SITE_CONFIG,PENALTY_WORDS,COLOR_DICTIONARY,COLOR_SYNONYMS,STOP_WORDS, BRANDS)
-from search_engines import create_browser_with_anti_detection
+# ---------- BROWSER SETUP ----------
+def create_browser_with_anti_detection():
+    """
+    Creates an undetected Chrome browser with anti-detection measures enabled.
+    This makes our scraper look like a real human browsing, not a bot. 
+    """
+    # Clean up old chromedriver files to prevent FileExistsError
+    try:
+        import shutil
+        uc_path = os.path.join(os.getenv('APPDATA'), 'undetected_chromedriver')
+        if os.path.exists(uc_path):
+            print(f"   🧹 Cleaning up old chromedriver files...")
+            shutil.rmtree(uc_path, ignore_errors=True)
+            time.sleep(1)  # Give OS time to release file handles
+    except Exception as e:
+        print(f"   ⚠️  Could not clean up old files: {e}")
+    
+    options = uc.ChromeOptions()
+    
+    # Window settings
+    options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument(f"user-agent={USER_AGENT}")
+    # Anti-detection settings (undetected_chromedriver handles most of these automatically)
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
+    
+    # Memory limits
+    options.add_argument("--max_old_space_size=5096")  # Limit memory to 5GB
+    options.add_argument("--js-flags=--max-old-space-size=5096")
+    
+    # Random user agent
+    # user_agent = random.choice(USER_AGENTS)
+    # options.add_argument(f"user-agent={user_agent_index}")
+    
+    # Additional privacy/stealth settings
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-extensions")
+    
+    
+    # Preferences to appear more human-like
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.managed_default_content_settings.images": 1,  # Load images
+    }
+    options.add_experimental_option("prefs", prefs)
+    
+    try:
+        # Create undetected Chrome browser
+        browser = uc.Chrome(
+            options=options,
+            use_subprocess=True,  # More stable
+            version_main=143,  # Uncomment and set your Chrome version if needed
+        )
+        
+        
+        # Additional stealth scripts (optional, but helpful)
+        browser.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": USER_AGENT
+        })
+        
+        # Set navigator properties to appear more human
+        browser.execute_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false
+            });
+            
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+            
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
+        """)
+        
+        return browser
+        
+    except Exception as e:
+        print(f"   ❌ Error creating undetected browser: {e}")
+        print("   💡 Make sure you have installed: pip install undetected-chromedriver")
+        raise
+
 # ---------- MATCHING LOGIC ----------
 def preprocess_text(text):
     """Normalize text for matching"""
@@ -234,28 +331,33 @@ def download_image(url, save_path):
     except Exception as e:
         print(f"   ❌ Failed to download {url} - {e}")
 
-def shorten_Variant_name(name, MAX_WORD):
-    """Shorten product name to first N words for cleaner Google searches"""
-    return ' '.join(name.split()[:MAX_WORD])
 
-def scrape_product_images(browser, variant_id, site):
+def scrape_product_images(browser, variant_id, site, product_url):
     """
     Scrape all product images from the current Amazon product page.
     This works for all Amazon sites (ae, in, com) since they share the same structure.
     """
-    cfg = SITE_CONFIG[site]
-    folder_path = create_variant_folder(variant_id, site)
+    # Open in new tab
+    browser.execute_script(f"window.open('{product_url}', '_blank');")
+    WebDriverWait(browser, 5).until(lambda d: len(d.window_handles) > 1)
+    browser.switch_to.window(browser.window_handles[-1])
+    
     img_count = 0
     seen = set()
 
     try:
+        
+        folder_path = create_variant_folder(variant_id, site)
         # Wait for the image container to load
         WebDriverWait(browser, 8).until(
-            EC.presence_of_element_located(cfg["IMG_CONTAINER"])
+            EC.presence_of_element_located(SITE_CONFIG[site]["IMG_CONTAINER"])
         )
+        
+        # Extract product name after page loads
+        product_name = extract_product_name(browser, site)
 
         # Find all thumbnail images
-        thumbnails = browser.find_elements(By.CSS_SELECTOR, cfg["IMG_SELECTOR"])
+        thumbnails = browser.find_elements(By.CSS_SELECTOR, SITE_CONFIG[site]["IMG_SELECTOR"])
         print(f"   🔍 Found {len(thumbnails)} thumbnails.")
 
         # Skip first thumbnail (usually a video or duplicate)
@@ -266,7 +368,7 @@ def scrape_product_images(browser, variant_id, site):
                     continue
 
                 # Convert thumbnail URL to high-resolution version
-                high_res_url = cfg["IMG_PROCESS"](src)
+                high_res_url = SITE_CONFIG[site]["IMG_PROCESS"](src)
 
                 # Skip duplicates
                 if high_res_url in seen:
@@ -274,17 +376,26 @@ def scrape_product_images(browser, variant_id, site):
                 seen.add(high_res_url)
 
                 img_count += 1
-                save_path = os.path.join(folder_path, f"image_{img_count}.jpg")
+                save_path = os.path.join(folder_path, f"image_{img_count}.png")
                 download_image(high_res_url, save_path)
-
+                
             except Exception as e:
                 print(f"   ⚠️ Skipping thumbnail due to error: {e}")
                 continue
-
-        return img_count > 0
+        
+        # Close product tab after scraping all images
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
+        
+        return { "img_count": img_count, "product_name": product_name }
 
     except Exception as e:
-        print(f"   ❌ Error scraping images - {e}")
+        print(f"   ❌ Error scraping images: {str(e)}")
+        try:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+        except:
+            pass
         return False
 
 
@@ -456,6 +567,20 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD,search_url):
         print(f"   ❌ Error searching Noon.ae: {str(e)}")
         return None
 
+def extract_product_name(browser,site):
+    """Extract product name"""
+    try:
+        product_title = browser.find_element(*SITE_CONFIG[site]["PRODUCT_TITLE"])
+        name = product_title.text.strip()
+        if name:
+            print(f"      ✓ Found product name: {name[: 60]}...")
+            return name
+    except:
+        pass
+    
+    print(f"      ✗ Product name not found")
+    return "Not Found"
+
 def search_and_scrape(site):
     """
     MODIFIED MAIN FUNCTION - Now uses Google search instead of direct Amazon search
@@ -470,9 +595,8 @@ def search_and_scrape(site):
     Google already finds the exact product page for us!
     """
 
-    cfg = SITE_CONFIG[site]
     total_start_time = time.time()
-    print(f"🚀 Starting {site} scraping process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🚀 Starting  scraping process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"🌍 Using geo-keyword: '{GEO_KEYWORD}' to prioritize amazon.ae results\n")
 
     # Read the Excel file containing product information
@@ -630,8 +754,26 @@ def search_and_scrape(site):
             # Scrape images if found
             if product_url: 
                 print(f"\n   ✅ Found product - scraping images!")
-                result = scrape_product_images(browser, variant_id, site)
-                status = "Success" if result else "Scraping Failed"
+                
+                # Navigate to the product URL
+                print(f"   🌐 Opening product page...")
+                # browser.get(product_url)
+                
+                # Detect which site the product is from based on URL
+                detected_site = site  # Default
+                if "amazon.ae" in product_url:
+                    detected_site = "amazon.ae"
+                elif "amazon.in" in product_url:
+                    detected_site = "amazon.in"
+                elif "amazon.com" in product_url:
+                    detected_site = "amazon.com"
+                elif "noon.com" in product_url:
+                    detected_site = "noon"
+                
+                
+                result = scrape_product_images(browser, variant_id, detected_site,product_url)
+                product_name = result["product_name"]
+                status = "Success" if result["img_count"] > 0 else "Scraping Failed"
 
             else:
                 print(f"\n   ⚠️ Strategy 1 failed - trying Strategy 2...")
@@ -761,6 +903,7 @@ def search_and_scrape(site):
     print(f"📊 Total searches: {search_count}")
     print(f"📊 Total products: {processed_count}")
     print(f"{'='*80}\n")
+
 
 def convert_csv_to_excel(OUTPUT_CSV):
     """Convert CSV to Excel"""

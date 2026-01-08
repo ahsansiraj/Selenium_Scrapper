@@ -15,13 +15,13 @@ from search_engines import search_duckduckgo_and_get_noon_url
 from search_engines import search_google_and_get_noon_url
 
 # ---------- MATCHING CONFIGURATION ----------
-from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, OUTPUT_EXCEL , COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
+from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
 
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\noontest.xlsx"  
 SHEET_NAME = "Sheet1"       
 OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon_text.csv"
-OUTPUT_EXCEL = "Price_Results_noon_text.xlsx"
+OUTPUT_EXCEL = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon_text.xlsx"
 START_ROW = 2      
 END_ROW = 3342                 
 MATCH_THRESHOLD=75 
