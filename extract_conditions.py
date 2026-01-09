@@ -4,7 +4,8 @@ def extract_product_condition(productName, browser=None):
     """Extract product condition from product name"""
     condition_keywords = {
         "Used": ["used", "pre-owned", "second hand"],
-        "Refurbished": ["refurbished", "renewed", "like new"],
+        "Refurbished": ["refurbished", "reconditioned"],
+        "Renewed": ["renewed", "certified pre-owned"],
         "New": ["new", "brand new", "sealed"]
     }
     
@@ -19,10 +20,10 @@ def extract_product_condition(productName, browser=None):
 
 
 # Read CSV file
-csv_path = r"e:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
+csv_path = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon_text.xlsx"
 print(f"Reading CSV from: {csv_path}\n")
 
-df = pd.read_csv(csv_path, on_bad_lines='skip')
+df = pd.read_excel(csv_path)
 # Clean column names (remove extra spaces)
 df.columns = df.columns.str.strip()
 print(f"Loaded {len(df)} products from CSV\n")
@@ -50,7 +51,7 @@ for idx, row in df.iterrows():
 result_df = pd.DataFrame(results)
 
 # Save to CSV
-output_path = r"e:\R3 Factory\Selenium_Prodcut_Scrapper\product_conditions.csv"
+output_path = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_noon_text.CSV"
 result_df.to_csv(output_path, index=False)
 
 print(f"\n{'='*80}")

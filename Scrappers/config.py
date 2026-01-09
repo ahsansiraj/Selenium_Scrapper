@@ -1,5 +1,6 @@
 import re
 from selenium.webdriver.common.by import By
+
 # ---------- MATCHING CONFIGURATION ----------
 STOP_WORDS = {'version', 'international', 'gb', 
               'single', 'sim', 'unlocked', 'Pre-Owned Phone', 'Pre-Owned Smart Phone' ,

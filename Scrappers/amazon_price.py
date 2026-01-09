@@ -362,9 +362,11 @@ def extract_product_condition(productName, browser):
     """
     condition_keywords = {
         "Used": ["used", "pre-owned", "second hand"],
-        "Refurbished": ["refurbished", "renewed", "like new"],
+        "Refurbished": ["refurbished", "reconditioned"],
+        "Renewed": ["renewed", "certified pre-owned"],
         "New": ["new", "brand new", "sealed"]
     }
+    
     
     productNameLower = productName.lower()
     print(f" Checking product condition for: {productNameLower}")

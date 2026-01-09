@@ -1,11 +1,11 @@
 import pandas as pd
 # ================= LOAD FILES =================
 
-portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Stock_Report_2026-01-08 2.xlsx")
-portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Buy_Price_2026-01-08 1.xlsx")
+portal_stock = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_ Stock_Report_2026-01-09 1.xlsx")
+portal_price = pd.read_excel(r"C:\Users\Ahsan\Downloads\R3P_Buy_Price_2026-01-09.xlsx")
 
-odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Qty 2026-01-08 1.xlsx")
-odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 08-01-26 3.xlsx")
+odoo_stock   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Qty 09-01-26.xlsx")
+odoo_price   = pd.read_excel(r"C:\Users\Ahsan\Downloads\Odoo Price 09-01-26.xlsx")
 # ================= FIX COLUMN NAMES =================
 
 for df in [portal_stock, odoo_stock, portal_price, odoo_price]:
