@@ -5,15 +5,15 @@ from PIL import Image
 import imagehash
 
 # Root folder containing all images
-root_folder = r"E:\R3 Factory\Product_images\All category Images\New folder"
+root_folder = r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Amazon.ae_laptop_Collected"
 
 # Folder where unwanted images will be moved
-deleted_folder = r"E:\R3 Factory\Product_images\All category Images\Deleted_Images"
+deleted_folder = r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Deleted_Images"
 os.makedirs(deleted_folder, exist_ok=True)
 
 # Reference images (play button overlays)
 reference_images = [
-    r"E:\R3 Factory\Product_images\All category Images\New folder\image_4_2_11.jpg",
+    r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Amazon.ae_laptop_Collected\image_1.png",
 ]
 
 # Step 1: Get hashes of reference images

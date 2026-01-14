@@ -19,11 +19,11 @@ from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, COLOR_DICTIONARY, COLOR_S
 
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  
-SHEET_NAME = "relation_data"       
-OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results.csv"
-OUTPUT_EXCEL = "Price_Results.xlsx"
+SHEET_NAME = "Sheet1"       
+OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\Price_Results_iphones_2.csv"
+OUTPUT_EXCEL = "Price_Results_iphones_2.xlsx"
 START_ROW = 2      
-END_ROW = 3342                 
+END_ROW = 305                 
 MATCH_THRESHOLD=70  
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 GEO_KEYWORD = "Dubai"
@@ -42,7 +42,7 @@ def create_browser_with_anti_detection():
     options.add_argument("--start-maximized")
     options.add_argument("--window-size=1920,1080")
     options.add_argument(f"user-agent={USER_AGENT}")
-    options.add_argument("--headless")  # Use new headless mode
+    # options.add_argument("--headless")  # Use new headless mode
     # Anti-detection settings (undetected_chromedriver handles most of these automatically)
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-dev-shm-usage")
@@ -447,10 +447,15 @@ def scrape_price_from_url(product_url, browser):
     """
     Open product page and extract price
     """
+    # Open in new tab
+    browser.execute_script(f"window.open('{product_url}', '_blank');")
+    WebDriverWait(browser, 5).until(lambda d: len(d.window_handles) > 1)
+    browser.switch_to.window(browser.window_handles[-1])
+    
     try:
         print(f"   📄 Opening product page...")
         browser.get(product_url)
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(1,2))
         
         handle_amazon_popup(browser)
         
@@ -470,7 +475,11 @@ def scrape_price_from_url(product_url, browser):
             status = "Success"
         else:
             status = "Price Not Found"
-        
+    
+        # Close product tab after scraping all images
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
+            
         return {
             "product_name":  product_name,
             "product_condition":product_condition,
@@ -478,9 +487,14 @@ def scrape_price_from_url(product_url, browser):
             "status":  status,
             "product_url": product_url
         }
-        
+
     except Exception as e:
         print(f"   ❌ Error scraping price: {str(e)}")
+        try:
+            browser.close()
+            browser.switch_to.window(browser.window_handles[0])
+        except:
+            pass
         return {
             "product_name": "Error",
             "product_condition":"Error",
@@ -497,7 +511,7 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         print(f"   🔍 Searching Amazon.ae for: {search_term}")
         
         browser.get("https://www.amazon.ae")
-        time.sleep(random.uniform(2, 3))
+        # time.sleep(random.uniform(2, 3))
         
         handle_amazon_popup(browser)
         
@@ -507,13 +521,13 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         )
         search_box.clear()
         
-        time.sleep(random.uniform(1, 4))
+        time.sleep(random.uniform(1, 2))
         
         for char in search_term:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.02, 0.15))  # Random typing speed
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
+        # time.sleep(random.uniform(0.5, 1.0))  # Pause before hitting enter
         
         # search_box.send_keys(search_term)
 
@@ -521,7 +535,7 @@ def search_amazon_ae_direct(search_term, browser, MATCH_THRESHOLD):
         search_button = browser.find_element(By.ID, "nav-search-submit-button")
         search_button.click()
         
-        time.sleep(random.uniform(2, 3))
+        # time.sleep(random.uniform(2, 3))
         
         # Wait for results
         WebDriverWait(browser, 10).until(
@@ -681,115 +695,191 @@ def unified_search_and_scrape():
             print(f"📝 Variant Name: {variant_name}")
             print(f"📊 Search Count: {search_count}")
             print(f"{'='*80}")
-            
+                        
+            # Initialize result variables
             product_url = None
             product_name = "Not Found"
-            product_condition="Not Found"
+            product_condition = "Not Found"
             price = "Not Found"
             status = "Not Found"
-            
-            time.sleep(random.uniform(2,3))
-            # ===== STRATEGY 1: Amazon.ae Direct Search =====
-            print(f"\n🎯 STRATEGY 1: Amazon.ae Direct Search")
-            
-            # Try Variant Name
-            print(f"\n   📍 Trying: Variant Name")
-            
-            # Try cascade - skip empty/invalid values
-            for search_name, threshold in [
-                    (variant_name, 70),
-                    (super_variant_name, 65),
-                    (model_name, 60)
-            ]:
-                # Skip if empty, "nan", or invalid
-                if not search_name or search_name == "nan" or pd.isna(search_name):
-                    continue
-                
-                print(f"\n   📍 Trying:  {search_name[:50]}")
-                product_url = search_amazon_ae_direct(search_name, browser, threshold)
-                
-                if product_url:
-                    break
-                
-                # Small delay between cascades
-                time.sleep(random.uniform(2, 4))
 
-            # Scrape price if found
-            if product_url: 
-                print(f"\n   ✅ Found on Amazon.ae Direct Search!")
+            def is_price_valid(price_value):
+                """Check if price is valid (not error/unavailable)"""
+                invalid_states = ["Not Found", "Currently Unavailable", "Error", ""]
+                return price_value not in invalid_states
+
+            def try_search_cascade(search_func, search_terms, browser, **kwargs):
+                """
+                **kwargs: Additional arguments for search function      
+                Returns:
+                    product_url or None
+                """
+                for search_data in search_terms:
+                    if len(search_data) == 2:
+                        search_term, label = search_data
+                        extra_args = {}
+                    else:
+                        search_term, label, extra_args = search_data
+                    
+                    # Skip invalid terms
+                    if not search_term or search_term == "nan" or pd.isna(search_term):
+                        continue
+                    
+                    print(f"\n   📍 Trying: {label}")
+                    
+                    try:
+                        # Call search function with proper arguments
+                        if extra_args:
+                            result = search_func(search_term, browser, **extra_args, **kwargs)
+                        else:
+                            result = search_func(search_term, browser, **kwargs)
+                        
+                        # Handle different return types
+                        if isinstance(result, tuple):
+                            product_url, _ = result
+                        else:
+                            product_url = result
+                        
+                        if product_url: 
+                            print(f"   ✅ Found URL: {product_url[: 60]}...")
+                            return product_url
+                        
+                    except Exception as e:
+                        print(f"   ⚠️ Search failed: {e}")
+                    
+                    time.sleep(random.uniform(1, 2))
+                
+                return None
+
+            # Prepare search terms for cascade
+            search_terms_basic = [
+                (variant_name, "Variant Name"),
+                (super_variant_name, "Super Variant Name") if super_variant_name != "nan" and not pd.isna(super_variant_name) else None,
+                (model_name, "Model Name") if model_name != "nan" and not pd. isna(model_name) else None,
+            ]
+
+            search_terms_amazon_direct = [
+                (variant_name, "Variant Name", {"match_threshold": 70}),
+                (super_variant_name, "Super Variant Name", {"match_threshold": 65}) if super_variant_name != "nan" and not pd.isna(super_variant_name) else None,
+                (model_name, "Model Name", {"match_threshold": 60}) if model_name != "nan" and not pd.isna(model_name) else None,
+            ]
+
+            # Filter out None values
+            search_terms_basic = [t for t in search_terms_basic if t]
+            search_terms_amazon_direct = [t for t in search_terms_amazon_direct if t]
+
+            # ========================================
+            # STRATEGY 1: DuckDuckGo Search
+            # ========================================
+            print(f"\n🎯 STRATEGY 1: DuckDuckGo Search")
+
+            product_url = try_search_cascade(
+                search_duckduckgo_and_get_amazon_url,
+                search_terms_basic,
+                browser
+            )
+
+            if product_url:
+                print(f"\n   ✅ Found on DuckDuckGo!")
                 result = scrape_price_from_url(product_url, browser)
                 product_name = result["product_name"]
-                product_condition=result["product_condition"]
+                product_condition = result["product_condition"]
                 price = result["price"]
                 status = result["status"]
-            else:
-                print(f"\n   ⚠️ Strategy 1 failed - trying Strategy 2...")
                 
-                # ===== STRATEGY 2: DuckDuckGo Search =====
-                print(f"\n🎯 STRATEGY 2: DuckDuckGo Search")
+                if is_price_valid(price):
+                    print(f"   💰 Valid price found: {price}")
+                else:
+                    print(f"   ⚠️ URL found but price is:  {price}")
+                    product_url = None  # Reset to trigger next strategy
+
+            # ========================================
+            # STRATEGY 2: Amazon.ae Direct Search
+            # (Only if Strategy 1 failed or price invalid)
+            # ========================================
+            if not product_url or not is_price_valid(price):
+                print(f"\n   ⚠️ Strategy 1 didn't find valid price - trying Strategy 2...")
+                print(f"\n🎯 STRATEGY 2: Amazon.ae Direct Search")
                 
-                # Try Variant Name
-                print(f"\n   📍 Trying:  Variant Name")
-                product_url, _ = search_duckduckgo_and_get_amazon_url(variant_name, browser)
-                
-                time.sleep(random.uniform(2,3))
-            
-                # Try Super Variant Name if failed
-                if not product_url and super_variant_name!= "nan": 
-                    print(f"\n   📍 Trying: Super Variant Name")
-                    product_url, _ = search_duckduckgo_and_get_amazon_url(super_variant_name, browser)
+                # Try cascade with different thresholds
+                for search_name, label, extra in search_terms_amazon_direct: 
+                    if not search_name: 
+                        continue
                     
-                time.sleep(random.uniform(2,3))
+                    print(f"\n   📍 Trying: {label}")
+                    
+                    try:
+                        product_url = search_amazon_ae_direct(
+                            search_name,
+                            browser,
+                            extra["match_threshold"]
+                        )
+                        
+                        if product_url: 
+                            print(f"   ✅ Found on Amazon Direct!")
+                            result = scrape_price_from_url(product_url, browser)
+                            product_name = result["product_name"]
+                            product_condition = result["product_condition"]
+                            price = result["price"]
+                            status = result["status"]
+                            
+                            if is_price_valid(price):
+                                print(f"   💰 Valid price found:  {price}")
+                                break  # Exit loop - success!
+                            else:
+                                print(f"   ⚠️ URL found but price is: {price}")
+                                product_url = None  # Reset to try next term
+                    
+                    except Exception as e: 
+                        print(f"   ⚠️ Search failed: {e}")
+                    
+                    time.sleep(random.uniform(2, 3))
+
+            # ========================================
+            # STRATEGY 3: Google Search
+            # (Only if Strategy 2 also failed or price invalid)
+            # ========================================
+            if not product_url or not is_price_valid(price):
+                print(f"\n   ⚠️ Strategy 2 didn't find valid price - trying Strategy 3...")
+                print(f"\n🎯 STRATEGY 3: Google Search")
                 
-                # Try Model Name if failed
-                if not product_url and model_name!= "nan" :
-                    print(f"\n   📍 Trying: Model Name")
-                    product_url, _ = search_duckduckgo_and_get_amazon_url(model_name, browser)
+                product_url = try_search_cascade(
+                    search_google_and_get_amazon_url,
+                    search_terms_basic,
+                    browser
+                )
                 
-                # Scrape price if found
-                if product_url:
-                    print(f"\n   ✅ Found on DuckDuckGo!")
+                if product_url: 
+                    print(f"\n   ✅ Found on Google!")
                     result = scrape_price_from_url(product_url, browser)
                     product_name = result["product_name"]
-                    product_condition=result["product_condition"]
+                    product_condition = result["product_condition"]
                     price = result["price"]
                     status = result["status"]
+                    
+                    if is_price_valid(price):
+                        print(f"   💰 Valid price found: {price}")
+                    else:
+                        print(f"   ⚠️ URL found but price is:  {price}")
+
+            # ========================================
+            # FINAL STATUS DETERMINATION
+            # ========================================
+            if is_price_valid(price):
+                print(f"\n   🎉 SUCCESS - Price: {price}")
+                status = "Success"
+            else:
+                print(f"\n   ❌ All strategies exhausted")
+                
+                # Set appropriate status based on what we found
+                if price == "Currently Unavailable":
+                    status = "Currently Unavailable"
+                elif product_name != "Not Found":
+                    status = "Price Not Found"  # Found product but no price
                 else:
-                    print(f"\n   ⚠️ Strategy 2 failed - trying Strategy 3...")
-                    
-                    # ===== STRATEGY 3: Google Search =====
-                    print(f"\n🎯 STRATEGY 3: Google Search")
-                    
-                    # Try Variant Name
-                    print(f"\n   📍 Trying: Variant Name")
-                    product_url, _ = search_google_and_get_amazon_url(variant_name, browser)
+                    status = "Not Found"  # Product not found at all
 
-                    time.sleep(random.uniform(2,3))
-                    
-                    # Try Super Variant Name if failed
-                    if not product_url and super_variant_name!= "nan":
-                        print(f"\n   📍 Trying: Super Variant Name")
-                        product_url, _ = search_google_and_get_amazon_url(super_variant_name, browser)
-
-                    time.sleep(random.uniform(2,3))
-                    
-                    # Try Model Name if failed
-                    if not product_url and model_name!= "nan":
-                        print(f"\n   📍 Trying: Model Name")
-                        product_url, _ = search_google_and_get_amazon_url(model_name, browser)
-                    
-                    # Scrape price if found
-                    if product_url:
-                        print(f"\n   ✅ Found on Google!")
-                        result = scrape_price_from_url(product_url, browser)
-                        product_name = result["product_name"]
-                        product_condition=result["product_condition"]
-                        price = result["price"]
-                        status = result["status"]
-                    else: 
-                        print(f"\n   ❌ All strategies failed - product not found")
-                        status = "Not Found"
-            
+            print(f"\n   📊 Final Status: {status}")
             # Save result
             row_data = {
                 "variant_id": variant_id,

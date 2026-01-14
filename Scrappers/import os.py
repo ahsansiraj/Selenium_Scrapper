@@ -3,6 +3,7 @@ import re
 import time
 import random
 import traceback
+from click import option
 import pandas as pd
 from datetime import datetime
 from selenium import webdriver
@@ -22,7 +23,7 @@ import os
 from search_engines import search_duckduckgo_and_get_amazon_url
 from search_engines import search_google_and_get_amazon_url
 
-from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, OUTPUT_EXCEL , COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
+from config import ( STOP_WORDS,BRANDS, PENALTY_WORDS, COLOR_DICTIONARY, COLOR_SYNONYMS,MODEL_KEYWORDS)
 
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\relation_data.xlsx"  # UPDATE THIS PATH
@@ -36,68 +37,180 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 GEO_KEYWORD = "Dubai"
 
 # ---------- BROWSER SETUP (VANILLA SELENIUM) ----------
-def create_browser_stealth():
-    """
-    Browser with ALL console logs suppressed
-    """
-    options = ChromeOptions()
+# def create_browser_stealth():
+#     """
+#     Browser with ALL console logs suppressed
+#     """
+#     options = ChromeOptions()
     
-    # Basic options
-    options.add_argument("--start-maximized")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument(f"user-agent={USER_AGENT}")
+#     # Basic options
+#     options.add_argument("--start-maximized")
+#     options.add_argument("--window-size=1920,1080")
+#     options.add_argument(f"user-agent={USER_AGENT}")
     
-    # Disable automation flags
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
+#     # Disable automation flags
+#     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+#     options.add_experimental_option('useAutomationExtension', False)
     
-    # ========== SUPPRESS ALL CHROME LOGS ==========
-    options.add_argument("--log-level=3")  # Only show FATAL errors
-    options.add_argument("--silent")
-    options.add_argument("--disable-logging")
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])
+#     # ========== SUPPRESS ALL CHROME LOGS ==========
+#     options.add_argument("--log-level=3")  # Only show FATAL errors
+#     options.add_argument("--silent")
+#     options.add_argument("--disable-logging")
+#     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     
-    # Disable specific noisy features
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-background-networking")
-    options.add_argument("--disable-sync")
-    options.add_argument("--disable-translate")
-    options.add_argument("--disable-default-apps")
-    options.add_argument("--disable-component-update")
+#     # Disable specific noisy features
+#     options.add_argument("--disable-dev-shm-usage")
+#     options.add_argument("--disable-gpu")
+#     options.add_argument("--no-sandbox")
+#     options.add_argument("--disable-software-rasterizer")
+#     options.add_argument("--disable-extensions")
+#     options.add_argument("--disable-background-networking")
+#     options.add_argument("--disable-sync")
+#     options.add_argument("--disable-translate")
+#     options.add_argument("--disable-default-apps")
+#     options.add_argument("--disable-component-update")
     
-    # Disable Bluetooth (stops those bluetooth_adapter errors)
-    options.add_argument("--disable-features=BluetoothAdapter")
+#     # Disable Bluetooth (stops those bluetooth_adapter errors)
+#     options.add_argument("--disable-features=BluetoothAdapter")
     
-    # Basic preferences
-    prefs = {
-        "credentials_enable_service": False,
-        "profile. password_manager_enabled": False,
-        "profile.default_content_setting_values.notifications": 2,
-    }
-    options.add_experimental_option("prefs", prefs)
+#     # Basic preferences
+#     prefs = {
+#         "credentials_enable_service": False,
+#         "profile. password_manager_enabled": False,
+#         "profile.default_content_setting_values.notifications": 2,
+#     }
+#     options.add_experimental_option("prefs", prefs)
     
-    # Create service with log suppression
-    service = ChromeService(
-        ChromeDriverManager().install(),
-        log_path='NUL' if os.name == 'nt' else '/dev/null'  # Discard ChromeDriver logs
-    )
+#     # Create service with log suppression
+#     service = ChromeService(
+#         ChromeDriverManager().install(),
+#         log_path='NUL' if os.name == 'nt' else '/dev/null'  # Discard ChromeDriver logs
+#     )
     
-    browser = webdriver.Chrome(service=service, options=options)
+#     browser = webdriver.Chrome(service=service, options=options)
     
-    # Minimal stealth
-    browser.execute_script("""
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined
-        });
-    """)
+#     # Minimal stealth
+#     browser.execute_script("""
+#         Object.defineProperty(navigator, 'webdriver', {
+#             get: () => undefined
+#         });
+#     """)
     
-    return browser
+#     return browser
 
 # ---------- MATCHING LOGIC ----------
+
+def create_browser_stealth():
+    """
+    Production-grade Firefox browser - TESTED & WORKING
+    """
+    print("   🦊 Initializing Firefox browser...")
+    
+    options = FirefoxOptions()
+    
+    # Window settings (NOT headless - visible browser)
+    options.add_argument("--width=1920")
+    options.add_argument("--height=1080")
+    
+    # User agent
+    options.set_preference("general.useragent.override", USER_AGENT)
+    options.set_preference("--disable-blink-features=AutomationControlled", True)
+    options.set_preference("--disable-dev-shm-usage", True)
+    options.set_preference("--no-sandbox", True)
+    options.set_preference("--disable-gpu", True)  
+    # ========== MEMORY PROTECTION ==========
+    # Limit memory per tab
+    options.set_preference("browser.cache.memory.max_entry_size", 5120)  # 5MB max
+    options.set_preference("browser.cache.memory.capacity", 32768)  # 32MB total
+    
+    # Disable memory-hungry features
+    options.set_preference("media.autoplay.enabled", False)
+    options.set_preference("media.autoplay.default", 5)  # Block audio/video
+    options.set_preference("permissions.default.image", 2)  # Disable images (HUGE savings)
+    options.set_preference("permissions.default.stylesheet", 2)  # Disable CSS
+    
+    # JavaScript timeout (prevent infinite loops)
+    options.set_preference("dom.max_script_run_time", 10)
+    options.set_preference("dom.max_chrome_script_run_time", 10)
+    
+    # Disable WebGL (memory intensive)
+    options.set_preference("webgl.disabled", True)
+    
+    # Tab restore (prevent memory buildup)
+    options.set_preference("browser.sessionstore.max_tabs_undo", 0)
+    options.set_preference("browser.sessionstore.max_windows_undo", 0)
+    
+    # Anti-detection
+    options.set_preference("dom.webdriver.enabled", False)
+    options.set_preference('useAutomationExtension', False)
+    options.set_preference("--disable-popup-blocking", True)
+    options.set_preference("--disable-notifications", True)
+    options.set_preference("--disable-extensions", True)
+    
+    # Privacy
+    options.set_preference("privacy.trackingprotection.enabled", False)
+    options.set_preference("dom.webnotifications.enabled", False)
+    options.set_preference("dom.push.enabled", False)
+    
+    # Performance
+    options.set_preference("browser.cache.disk.enable", False)
+    options.set_preference("browser.cache.memory.enable", True)
+    options.set_preference("network.http.use-cache", False)
+    
+    # Suppress logs
+    options.set_preference("devtools.console.stdout.chrome", False)
+    options.log.level = "fatal"
+    
+    # Service
+    try:
+        geckodriver_path = GeckoDriverManager().install()
+        print(f"   📁 GeckoDriver:  {geckodriver_path}")
+    except Exception as e:
+        print(f"   ❌ GeckoDriver install failed: {e}")
+        raise
+    
+    service = FirefoxService(
+        geckodriver_path,
+        log_path='NUL' if os.name == 'nt' else '/dev/null'
+    )
+    
+    # Launch browser
+    try:
+        browser = webdriver.Firefox(service=service, options=options)
+        
+        # Set navigator properties to appear more human
+        browser.execute_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false
+            });
+            
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+            
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+            
+            window.chrome = {
+                runtime: {}
+            };
+            
+            Object.defineProperty(navigator, 'permissions', {
+                get: () => ({
+                    query: () => Promise.resolve({ state: 'granted' })
+                })
+            });
+        """)
+        
+        print("   ✅ Firefox launched successfully")
+        return browser
+        
+    except Exception as e: 
+        print(f"   ❌ Firefox launch failed: {e}")
+        print(f"   💡 Check:  firefox --version")
+        raise
+
 def preprocess_text(text):
     """Normalize text for matching"""
     text = text.lower()
@@ -367,16 +480,20 @@ def extract_product_condition(productName, browser):
     """
     condition_keywords = {
         "Used": ["used", "pre-owned", "second hand"],
-        "Refurbished": ["refurbished", "renewed", "like new"],
+        "Refurbished": ["refurbished", "reconditioned"],
+        "Renewed": ["renewed", "certified pre-owned"],
         "New": ["new", "brand new", "sealed"]
     }
     
+    
     productNameLower = productName.lower()
+    print(f" Checking product condition for: {productNameLower}")
     
     try:
         for condition, keywords in condition_keywords.items():
             for keyword in keywords:
                 if keyword in productNameLower:
+                    print(f"Detected product condition: {condition} (keyword: '{keyword}')")
                     return condition
     except Exception as e:
         print(f" Could not check product name keywords: {e}")

@@ -364,7 +364,7 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
         print("   🔍 Searching on DuckDuckGo...")
         browser.get("https://duckduckgo.com")
 
-        time.sleep(random.uniform(2, 4))
+        # time.sleep(random.uniform(2,3))
         
         search_query = f"{variant_name} amazon.ae {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
@@ -374,16 +374,16 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
             EC.presence_of_element_located((By.ID, "searchbox_input"))
         )
         search_box.clear()
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(1, 2))
         for char in search_query:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))
+        # time.sleep(random.uniform(0.2, 0.5))
         search_box.send_keys(Keys.ENTER)
         
         # Wait for results
-        time.sleep(3)
+        # time.sleep(3)
         WebDriverWait(browser, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
         )
@@ -400,7 +400,8 @@ def search_duckduckgo_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_
             except:
                 continue
         
-        print(f"   📊 Found {len(all_urls)} Amazon URLs")
+        print(f"   📊 Found {len(all_urls)} Amazon URLs" )
+        print(f"   🔗 Sample URLs: {all_urls[:5]}")
         
         # Same priority logic
         for url in all_urls:
@@ -450,7 +451,7 @@ def search_duckduckgo_and_get_noon_url(variant_name, browser, geo_keyword=GEO_KE
         time.sleep(random.uniform(2, 4))
         for char in search_query:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+            time.sleep(random.uniform(0.02, 0.5))  # Random typing speed
         
         time.sleep(random.uniform(0.5, 1.0))
         search_box.send_keys(Keys.ENTER)
@@ -473,7 +474,7 @@ def search_duckduckgo_and_get_noon_url(variant_name, browser, geo_keyword=GEO_KE
                 # ✅ FIXED: Filter properly
                 if url and url.startswith("http"):
                     # Exclude Google's own URLs
-                    if "google. com" not in url:
+                    if "google.com" not in url:
                         # Only keep Noon URLs
                         if "noon.com" in url:
                             all_urls.append(url)
@@ -560,7 +561,7 @@ def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_K
             return None, None
         
         # Step 2: Create the geo-targeted search query
-        search_query = f"{variant_name} {geo_keyword}"
+        search_query = f"{variant_name} amazon {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
         
         # Step 3: Find Google's search box using multiple selectors
@@ -711,12 +712,12 @@ def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=G
             EC.presence_of_element_located((By.ID, "searchbox_input"))
         )
         search_box.clear()
-        time.sleep(random.uniform(2, 4))
+        # time.sleep(random.uniform(2, 4))
         for char in search_query:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))  # Random typing speed
+            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
         
-        time.sleep(random.uniform(0.5, 1.0))
+        # time.sleep(random.uniform(0.5, 1.0))
         search_box.send_keys(Keys.ENTER)
         
         # Wait for results
@@ -935,7 +936,7 @@ def search_BING_and_get_amazon_url(variant_name, browser, geo_keyword=GEO_KEYWOR
         print(f"   📍 Error type: {type(e).__name__}")
         
         try:
-            print(f"   🌐 Current URL: {browser.current_url}")
+            # print(f"   🌐 Current URL: {browser.current_url}")
             print(f"   📄 Page title: {browser.title}")
         except:
             pass

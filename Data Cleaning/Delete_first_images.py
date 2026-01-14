@@ -2,7 +2,7 @@
 import os
 
 # 🔹 Path where all your folders exist
-base_folder = r"E:\R3 Factory\Product_images\tableConvert.com\Round1\Amazon.com"
+base_folder = r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop"
 
 deleted_files = []
 
