@@ -14,11 +14,12 @@ from selenium.webdriver.common.keys import Keys
 import undetected_chromedriver as uc
 
 from search_engines import search_duckduckgo_and_get_amazon_IMAGES, search_google_and_get_amazon_IMAGES
+
 # ---------- CONFIG ----------
 EXCEL_FILE = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\New Laptop Super Variant.xlsx"  
 SHEET_NAME = "Sheet1"       
-OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\IMAGES_Results_Laptop.csv"
-OUTPUT_EXCEL = "IMAGES_Results_Laptop.xlsx"
+OUTPUT_CSV = r"E:\R3 Factory\Selenium_Prodcut_Scrapper\Scrapper_Results\IMAGES_Results_Laptop_test.csv"
+OUTPUT_EXCEL = "IMAGES_Results_Laptop_test.xlsx"
 START_ROW = 2      
 END_ROW = 1005                 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
@@ -31,7 +32,6 @@ from config import ( SITE_CONFIG,PENALTY_WORDS,COLOR_DICTIONARY,COLOR_SYNONYMS,S
 def create_browser_with_anti_detection():
     """
     Creates an undetected Chrome browser with anti-detection measures enabled.
-    This makes our scraper look like a real human browsing, not a bot. 
     """
     # Clean up old chromedriver files to prevent FileExistsError
     try:
@@ -233,7 +233,7 @@ def calculate_match_score(variant, product_title):
     
     base_score = fuzz.token_set_ratio(variant_proc, title_proc) * 1.0
     
-    # 2. STORAGE CAPACITY MATCH (0-15 points)
+    # 2.STORAGE CAPACITY MATCH (0-15 points)
     variant_cap = extract_storage(variant)
     title_cap = extract_storage(product_title)
     
@@ -247,7 +247,7 @@ def calculate_match_score(variant, product_title):
     else:
         storage_score = 0  
     
-    # 3. BRAND MATCH (0-15 points)
+    # 3.BRAND MATCH (0-15 points)
     variant_brand, variant_model = extract_brand_and_model(variant)
     brand_score = 0
     
@@ -261,7 +261,7 @@ def calculate_match_score(variant, product_title):
             else:
                 brand_score = -5  
     
-    # 4. MODEL NUMBER MATCH (0-15 points)
+    # 4.MODEL NUMBER MATCH (0-15 points)
     model_score = 0
     if variant_model:
         if variant_model in title_lower: 
@@ -270,10 +270,10 @@ def calculate_match_score(variant, product_title):
             if len(variant_model) >= 4: 
                 model_score = -10  
     
-    # 5. COLOR MATCH (-10 to +10 points)
+    # 5.COLOR MATCH (-10 to +10 points)
     color_score = calculate_color_match_score(variant, product_title)
     
-    # 6. KEYWORD OVERLAP BONUS (0-5 points)
+    # 6.KEYWORD OVERLAP BONUS (0-5 points)
     variant_words = set(variant_proc.split())
     title_words = set(title_proc.split())
     common_words = variant_words & title_words
@@ -282,12 +282,12 @@ def calculate_match_score(variant, product_title):
     meaningful_common = [w for w in common_words if len(w) >= 3]
     keyword_bonus = min(len(meaningful_common), 5)  # Max 5 points
     
-    # 7. ACCESSORY PENALTY (-20 points)
+    # 7.ACCESSORY PENALTY (-20 points)
     penalty = 0
     if any(word in title_lower for word in PENALTY_WORDS):
         penalty = -20  # Strong penalty for accessories
     
-    # 8. REFURBISHED DETECTION (informational, no penalty for now)
+    # 8.REFURBISHED DETECTION (informational, no penalty for now)
     if any(keyword in title_lower for keyword in ['refurbished', 'renewed', 'pre-owned', 'like new']):
         pass      
 
@@ -330,6 +330,20 @@ def download_image(url, save_path):
         print(f"   ✅ Saved: {save_path}")
     except Exception as e:
         print(f"   ❌ Failed to download {url} - {e}")
+
+def extract_product_name(browser,site):
+    """Extract product name"""
+    try:
+        product_title = browser.find_element(*SITE_CONFIG[site]["PRODUCT_TITLE"])
+        name = product_title.text.strip()
+        if name:
+            print(f"      ✓ Found product name: {name[: 60]}...")
+            return name
+    except:
+        pass
+    
+    print(f"      ✗ Product name not found")
+    return "Not Found"
 
 
 def scrape_product_images(browser, variant_id, site, product_url):
@@ -397,7 +411,6 @@ def scrape_product_images(browser, variant_id, site, product_url):
         except:
             pass
         return False
-
 
 def search_amazon_direct(search_term, browser, MATCH_THRESHOLD, search_url):
     """
@@ -567,29 +580,15 @@ def search_noon_ae_direct(search_term, browser, MATCH_THRESHOLD,search_url):
         print(f"   ❌ Error searching Noon.ae: {str(e)}")
         return None
 
-def extract_product_name(browser,site):
-    """Extract product name"""
-    try:
-        product_title = browser.find_element(*SITE_CONFIG[site]["PRODUCT_TITLE"])
-        name = product_title.text.strip()
-        if name:
-            print(f"      ✓ Found product name: {name[: 60]}...")
-            return name
-    except:
-        pass
-    
-    print(f"      ✗ Product name not found")
-    return "Not Found"
-
 def search_and_scrape(site):
     """
     MODIFIED MAIN FUNCTION - Now uses Google search instead of direct Amazon search
     
     The key change: Instead of going to Amazon and searching there, we:
-    1. Search on Google for the product + "Dubai"
-    2. Extract the Amazon product URL from Google results
-    3. Go directly to that exact product page
-    4. Scrape the images
+    1.Search on Google for the product + "Dubai"
+    2.Extract the Amazon product URL from Google results
+    3.Go directly to that exact product page
+    4.Scrape the images
     
     This eliminates the need for complex product matching logic because
     Google already finds the exact product page for us!
@@ -611,7 +610,7 @@ def search_and_scrape(site):
             processed_ids = set(processed_df['variant_id'].astype(str))
             df_to_process = full_df[~full_df['Variant ID'].astype(str).isin(processed_ids)]
             
-            print(f"📄 Resuming...  {len(processed_df)} products already processed")
+            print(f"📄 Resuming...{len(processed_df)} products already processed")
             print(f"📋 Remaining products: {len(df_to_process)}\n")
             
         except Exception as e:
@@ -661,7 +660,7 @@ def search_and_scrape(site):
             processed_count += 1
             
             # Browser refresh cycle
-            if search_count % 15 == 0:
+            if search_count % 20 == 0:
                 print(f"\n{'='*80}")
                 print(f"🔄 BROWSER REFRESH: Search count reached {search_count}")
                 print(f"{'='*80}")
@@ -672,7 +671,7 @@ def search_and_scrape(site):
                 except:
                     pass
                 
-                wait_time = random.randint(120, 180)
+                wait_time = random.randint(100, 150)
                 print(f"   ⏸️ Cooling down for {wait_time // 60}m {wait_time % 60}s...")
                 time.sleep(wait_time)
                 
@@ -696,36 +695,32 @@ def search_and_scrape(site):
             print(f"\n🎯 STRATEGY 1: duckduckgo Direct Search")
             
             # Try Variant Name
-            print(f"\n   📍 Trying:  Variant Name")
+            print(f"\n🎯 STRATEGY 1: DuckDuckGo Search")
+            
+            # Try Variant Name
+            print(f"\n   📍 Trying: Variant Name")
             product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser)
             
             time.sleep(random.uniform(1,2))
         
-            # Try Super Variant Name if failed
-            # if not product_url and super_variant_name!= "nan": 
-            #     print(f"\n   📍 Trying: Super Variant Name")
-            #     product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(super_variant_name, browser)
-                
-            # time.sleep(random.uniform(1,2))
-            
-            # Try Model Name if failed
-            # if not product_url and model_name!= "nan" :
-            #     print(f"\n   📍 Trying: Model Name")
-            #     product_url, _ = search_duckduckgo_and_get_amazon_IMAGES(model_name, browser)
-            
-            # Scrape price if found
+            # Scrape images if found
+            scraping_success = False
             if product_url:
                 print(f"\n   ✅ Found on DuckDuckGo!")
                 result = scrape_product_images(browser, variant_id, site, product_url)
-                if result:
+                if result and result.get("img_count", 0) > 0:
                     product_name = result["product_name"]
-                    status = "Success" if result["img_count"] > 0 else "Scraping Failed"
+                    status = "Success"
+                    scraping_success = True
                 else:
-                    product_name = "Not Found"
-                    status = "Scraping Failed"
+                    print(f"\n   ⚠️ DuckDuckGo found URL but scraping failed - falling back to Strategy 2...")
+                    product_url = None  # Reset to trigger Strategy 2
 
-            elif not product_url:
-
+            # STRATEGY 2: Direct Amazon Search (if DuckDuckGo failed OR scraping failed)
+            if not scraping_success:
+             
+                print(f"\n🎯 STRATEGY 2: Direct Amazon Search")
+                
                 # Build name candidates (in priority order) with thresholds
                 name_candidates = [
                     (variant_name, 70),
@@ -754,10 +749,10 @@ def search_and_scrape(site):
                 ]
 
                 for site_key, search_url in amazon_sites:
-                    if product_url:
+                    if scraping_success:
                         break
 
-                    print(f"\n   🌍 Now searching {site_key} ")
+                    print(f"\n   🌍 Now searching {site_key}")
 
                     for search_name, threshold in name_candidates:
                         if not _valid_name(search_name):
@@ -771,29 +766,73 @@ def search_and_scrape(site):
                         if product_url:
                             print(f"      ✅ Found on {site_key}!")
                             break
+                        # time.sleep(random.uniform(1, 2))
+                
+                    # If you still want to try Noon only after failing all Amazons, do it here
+                    # if not product_url:
+                    #     print(f"\n   🌍 Amazon failed (ae/in/com).Now trying noon.ae...")
+                    #     for search_name, threshold in name_candidates:
+                    #         if not _valid_name(search_name):
+                    #             continue
 
-                        time.sleep(random.uniform(1, 2))
-
-                    
-                # If you still want to try Noon only after failing all Amazons, do it here
-                # if not product_url:
-                #     print(f"\n   🌍 Amazon failed (ae/in/com). Now trying noon.ae...")
-                #     for search_name, threshold in name_candidates:
-                #         if not _valid_name(search_name):
-                #             continue
-
-                #         search_name = str(search_name).strip()
-                #         print(f"      📍 Trying on noon: {search_name[:60]}...")
-                #         product_url = search_noon_ae_direct(search_name, browser, threshold, SITE_CONFIG["noon"]["SEARCH_URL"])
-                #         if product_url:
-                #             print(f"      ✅ Found on noon.ae!")
-                #             break
-                #         # time.sleep(random.uniform(1, 2))
+                    #         search_name = str(search_name).strip()
+                    #         print(f"      📍 Trying on noon: {search_name[:60]}...")
+                    #         product_url = search_noon_ae_direct(search_name, browser, threshold, SITE_CONFIG["noon"]["SEARCH_URL"])
+                    #         if product_url:
+                    #             print(f"      ✅ Found on noon.ae!")
+                    #             break
+                    #         # time.sleep(random.uniform(1, 2))
 
                 # Scrape images if found
-                if product_url:
-                    print(f"\n   ✅ Found product - scraping images!")
+                    if product_url:
+                        print(f"\n   ✅ Found product - scraping images!")
 
+                        detected_site = (
+                            "amazon.ae" if "amazon.ae" in product_url else
+                            "amazon.in" if "amazon.in" in product_url else
+                            "amazon.com" if "amazon.com" in product_url else
+                            # "noon" if ("noon.com" in product_url or "noon.ae" in product_url) else
+                            site
+                        )
+
+                        result = scrape_product_images(browser, variant_id, detected_site, product_url)
+                        if result and result.get("img_count", 0) > 0:
+                            product_name = result["product_name"]
+                            status = "Success"
+                            scraping_success = True
+                            print(f" ✅ Successfully scraped images!")
+                            break
+                        else:
+                            print(f"      ⚠️ Found URL but scraping failed, trying next option...")
+                            product_url = None
+
+                time.sleep(random.uniform(1, 2))
+
+            # STRATEGY 3: Google Search (if both DuckDuckGo and Direct Search failed)
+            if not scraping_success:
+                print(f"\n🎯 STRATEGY 3: Google Search")
+                
+                # Try Variant Name
+                print(f"\n   📍 Trying: Variant Name")
+                product_url, _ = search_google_and_get_amazon_IMAGES(variant_name, browser)
+
+                time.sleep(random.uniform(1,2))
+                
+                # Try Super Variant Name if failed
+                # if not product_url and super_variant_name != "nan":
+                #     print(f"\n   📍 Trying: Super Variant Name")
+                #     product_url, _ = search_google_and_get_amazon_IMAGES(super_variant_name, browser)
+                #     time.sleep(random.uniform(1,2))
+                
+                # Try Model Name if failed
+                # if not product_url and model_name != "nan":
+                #     print(f"\n   📍 Trying: Model Name")
+                #     product_url, _ = search_google_and_get_amazon_IMAGES(model_name, browser)
+                
+                # Scrape images if found
+                if product_url:
+                    print(f"\n   ✅ Found on Google!")
+                    
                     detected_site = (
                         "amazon.ae" if "amazon.ae" in product_url else
                         "amazon.in" if "amazon.in" in product_url else
@@ -801,50 +840,19 @@ def search_and_scrape(site):
                         # "noon" if ("noon.com" in product_url or "noon.ae" in product_url) else
                         site
                     )
-
+                    
                     result = scrape_product_images(browser, variant_id, detected_site, product_url)
-                    if result:
+                    if result and result.get("img_count", 0) > 0:
                         product_name = result["product_name"]
-                        status = "Success" if result["img_count"] > 0 else "Scraping Failed"
+                        status = "Success"
+                        scraping_success = True
                     else:
+                        product_name = "Not Found"
                         status = "Scraping Failed"
-
                 else:
-                    print(f"\n   ⚠️ Strategy 2 failed - trying 🎯 STRATEGY 3: Google Search...")
-                    
-                    # ===== STRATEGY 3: Google Search =====
-                    # print(f"\n🎯 STRATEGY 3: Google Search")
-                    
-                    # Try Variant Name
-                    print(f"\n   📍 Trying: Variant Name")
-                    product_url, _ = search_google_and_get_amazon_IMAGES(variant_name, browser)
-
-                    time.sleep(random.uniform(1,2))
-                    
-                    # Try Super Variant Name if failed
-                    # if not product_url and super_variant_name!= "nan":
-                    #     print(f"\n   📍 Trying: Super Variant Name")
-                    #     product_url, _ = search_google_and_get_amazon_IMAGES(super_variant_name, browser)1
-
-                    time.sleep(random.uniform(1,2))
-                    
-                    # # Try Model Name if failed
-                    # if not product_url and model_name!= "nan":
-                    #     print(f"\n   📍 Trying: Model Name")
-                    #     product_url, _ = search_google_and_get_amazon_IMAGES(model_name, browser)
-                    
-                    # Scrape price if found
-                    if product_url:
-                        print(f"\n   ✅ Found on Google!")
-                        result = scrape_product_images(browser, variant_id, site , product_url)
-                        if result:
-                            product_name = result["product_name"]
-                            status = result["status"]
-                        else:
-                            status = "Scraping Failed"
-                    else: 
-                        print(f"\n   ❌ All strategies failed - product not found")
-                        status = "Not Found"
+                    print(f"\n   ❌ All strategies failed - product not found")
+                    product_name = "Not Found"
+                    status = "Not Found"
             
             # Save result
             row_data = {
@@ -865,8 +873,8 @@ def search_and_scrape(site):
             print(f"\n   ⏱️ Product processed in {product_time:.2f}s")
             print(f"   📊 Status: {status}")
             
-            wait_time = random.randint(2, 4)
-            print(f"   ⏳ Waiting {wait_time} seconds.. .\n")
+            wait_time = random.randint(2, 3)
+            print(f"   ⏳ Waiting {wait_time} seconds...\n")
             time.sleep(wait_time)
             
         except Exception as e:
@@ -957,4 +965,4 @@ if __name__ == "__main__":
     if site_choice in SITE_CONFIG:
         search_and_scrape(site_choice)
     else:
-        print("❌ Invalid choice. Please choose from: amazon.ae, amazon.in, amazon.com, or noon")
+        print("❌ Invalid choice.Please choose from: amazon.ae, amazon.in, amazon.com, or noon")

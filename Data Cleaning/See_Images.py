@@ -2,8 +2,8 @@
 # import shutil
 # import pandas as pd
 
-# base_folder = r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Amazon.ae_laptop"
-# output_folder = r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Amazon.ae_laptop_Collected"
+# base_folder = r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop"
+# output_folder = r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop_Collected"
 # os.makedirs(output_folder, exist_ok=True)
 
 # mappings = []
@@ -50,7 +50,7 @@ import os
 import shutil
 import pandas as pd
 
-output_folder = r"E:\R3 Factory\Product_images\Super Variant\Amazon.ae_laptop\Amazon.ae_laptop_Collected"
+output_folder = r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop_Collected"
 mapping_file = "image_mapping2.csv"
 
 df = pd.read_csv(mapping_file)

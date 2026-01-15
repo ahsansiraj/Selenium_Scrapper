@@ -545,26 +545,22 @@ def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_K
     Returns:
         tuple: (product_url, site_name) if found, or (None, None) if not found
     """
-    try:
-        # Step 1: Navigate to Google's homepage first to establish a session
+    try: 
         print("   🔍 Navigating to Google...")
         browser.get("https://www.google.com")
         time.sleep(random.uniform(2, 4))  # Random delay to seem more human
         
-        # Check if we got blocked by looking for consent or CAPTCHA pages
-        page_source = browser.page_source.lower()
-        if "captcha" in page_source or "unusual traffic" in page_source:
-            print("   ⚠️  Google detected automation. You might need to:")
-            print("      1. Wait a few minutes before trying again")
-            print("      2. Use a VPN or change your IP address")
-            print("      3. Manually complete CAPTCHA if browser window shows one")
+        # Check for CAPTCHA
+        page_source = browser.page_source. lower()
+        if "captcha" in page_source or "unusual traffic" in page_source: 
+            print("   ⚠️ Google detected automation")
             return None, None
         
-        # Step 2: Create the geo-targeted search query
+        # Create search query
         search_query = f"{variant_name} amazon {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
         
-        # Step 3: Find Google's search box using multiple selectors
+        # Find search box
         search_box = None
         selectors_to_try = [
             (By.NAME, "q"),
@@ -587,7 +583,6 @@ def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_K
         
         if not search_box:
             print("   ❌ Could not find Google search box. Google might be blocking access.")
-            print("   💡 Try opening Google manually in the browser to check for CAPTCHA")
             return None, None
         
         # Step 4: Type the search query character by character (like a human)
@@ -657,7 +652,6 @@ def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_K
                 domain = url.split('/')[2] if len(url.split('/')) > 2 else url
                 print(f"      • {domain}")
         
-        # Step 7: Filter and prioritize Amazon URLs
         # Priority 1: amazon.ae
         for url in all_urls:
             if "amazon.ae" in url and "/dp/" in url:
@@ -676,21 +670,11 @@ def search_google_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_K
                 print(f"   ✅ Found amazon.com URL")
                 return url, "amazon.com"
         
-        print("   ⚠️  No Amazon product URLs found in results")
-        print("   💡 This might mean the product isn't available on Amazon")
+        
         return None, None
         
     except Exception as e:
         print(f"   ❌ Error during Google search: {str(e)}")
-        print(f"   📍 Error type: {type(e).__name__}")
-        
-        # Try to provide helpful context
-        try:
-            print(f"   🌐 Current URL: {browser.current_url}")
-            print(f"   📄 Page title: {browser.title}")
-        except:
-            pass
-        
         return None, None
 
 def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=GEO_KEYWORD):
@@ -702,7 +686,7 @@ def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=G
         print("   🔍 Searching on DuckDuckGo...")
         browser.get("https://duckduckgo.com")
 
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(2, 3))
         
         search_query = f"{variant_name} amazon.ae {geo_keyword}"
         print(f"   🌍 Search query: '{search_query}'")
@@ -715,13 +699,14 @@ def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=G
         # time.sleep(random.uniform(2, 4))
         for char in search_query:
             search_box.send_keys(char)
-            time.sleep(random.uniform(0.02, 0.05))  # Random typing speed
+            time.sleep(random.uniform(0.02, 0.04))  # Random typing speed
         
         # time.sleep(random.uniform(0.5, 1.0))
         search_box.send_keys(Keys.ENTER)
         
         # Wait for results
-        time.sleep(3)
+        # time.sleep(3)
+
         WebDriverWait(browser, 10).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
         )
@@ -747,14 +732,14 @@ def search_duckduckgo_and_get_amazon_IMAGES(variant_name, browser, geo_keyword=G
                 return url, "amazon.ae"
         
         for url in all_urls:
-            if "amazon.in" in url and "/dp/" in url:
-                print(f"   ✅ Found amazon.in URL")
-                return url, "amazon.in"
-        
-        for url in all_urls:
             if "amazon.com" in url and "/dp/" in url:
                 print(f"   ✅ Found amazon.com URL")
                 return url, "amazon.com"
+        
+        for url in all_urls:
+            if "amazon.in" in url and "/dp/" in url:
+                print(f"   ✅ Found amazon.in URL")
+                return url, "amazon.in"
         
         print("   ⚠️  No Amazon URLs found")
         return None, None

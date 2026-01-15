@@ -243,7 +243,7 @@ SITE_CONFIG = {
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_ae_R1.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.ae_laptop_test",
         "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "amazon.in": {
@@ -252,7 +252,7 @@ SITE_CONFIG = {
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_in_R1.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.in_laptop",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.in_laptop_test",
         "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "amazon.com": {
@@ -261,7 +261,7 @@ SITE_CONFIG = {
         "IMG_CONTAINER": (By.ID, "altImages"),
         "IMG_SELECTOR": "#altImages img",
         "CSV": "scrape_results_Amazon_com_R1.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.com_Laptop",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Amazon.com_Laptop_test",
         "IMG_PROCESS": lambda url: re.sub(r'\._.*?_\.', '._SL500_.', url) if url else ""
     },
     "noon": {
@@ -274,7 +274,7 @@ SITE_CONFIG = {
         "IMG_SELECTOR": "button.GalleryV2_thumbnailElement__3g3ls img",
         "LINK": (By.CSS_SELECTOR, 'a.ProductBoxLinkHandler_productBoxLink__FPhjp'),
         "CSV": "scrape_results_noon.csv",
-        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Noon_Laptop",
+        "OUTPUT_DIR": r"E:\R3 Factory\Product_images\Super Variant\Rounds1\Noon_Laptop_test",
         "IMG_PROCESS": lambda url: re.sub(r'\._.*_\.', '._SL500_.', url) if url else ""
     }
 }
